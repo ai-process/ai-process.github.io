@@ -1,0 +1,29 @@
+title: ai-process
+description: Open-source, MIT-licensed infrastructure for running LLMs in production — KTMS gateway, light-tokenmeter and ktms-admin.
+url: "https://ai-process.dev"
+baseurl: ""
+
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  hard_wrap: false
+  syntax_highlighter: rouge
+
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+defaults:
+  - scope:
+      path: "docs"
+    values:
+      layout: doc
+
+exclude:
+  - README.md
+  - LICENSE
+  - scripts/
+  - Gemfile
+  - Gemfile.lock
+  - vendor/

@@ -1,0 +1,307 @@
+---
+layout: default
+title: ai-process — open-source infrastructure for production LLMs
+description: KTMS is a self-hosted LLM gateway in Go. With light-tokenmeter and ktms-admin it keeps your vendor keys, routes by effort, falls back, caps spend and shows who burns the tokens. MIT-licensed.
+---
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <span class="pill"><span class="dot"></span>Open source · MIT · Written in Go</span>
+      <h1>One switchboard for <span class="grad-text">every LLM</span> you run</h1>
+      <p class="lead">KTMS is a self-hosted LLM gateway: it keeps your vendor keys, routes each request by effort, falls back when a provider fails and caps spend. light-tokenmeter shows who burns the tokens. ktms-admin puts it all in your browser.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#quickstart">Get started in 1 minute</a>
+        <a class="btn btn-ghost" href="/docs/">Read the docs</a>
+      </div>
+      <div class="hero-meta">
+        <span><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>No enterprise edition</span>
+        <span><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>gRPC + OpenAI-compatible HTTP</span>
+        <span><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>amd64 &amp; arm64 images</span>
+      </div>
+    </div>
+    <div class="terminal reveal" aria-label="Example requests through KTMS">
+      <div class="terminal-bar"><i></i><i></i><i></i><span>~/your-service</span></div>
+      <div class="terminal-body" data-terminal></div>
+    </div>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="container">
+    <div class="stats-grid reveal">
+      <div class="stat"><b class="grad-text">~7 MiB</b><span>idle memory</span></div>
+      <div class="stat"><b class="grad-text">~0.6 ms</b><span>added latency, p50</span></div>
+      <div class="stat"><b class="grad-text">≥4,000</b><span>RPS on 4 vCPU</span></div>
+      <div class="stat"><b class="grad-text">~170 ms</b><span>from start to first answer</span></div>
+    </div>
+    <p class="stats-note">KTMS, measured in October 2026 on GCP <code>c3-standard-4</code> against a mock upstream. Compiled proxies such as agentgateway, APISIX and Kong add even less latency; KTMS plays in their league and adds the features. <a href="https://github.com/ai-process/ktms#resource-footprint">Method and full numbers →</a></p>
+  </div>
+</section>
+
+<section class="section" id="products">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Products</span>
+      <h2>Three small services. <span class="grad-text">One production stack.</span></h2>
+      <p>Use them together or one at a time. Each is a single Go binary with its own Docker image, Helm-friendly defaults and an MIT licence.</p>
+    </div>
+    <div class="products">
+      <article class="product featured reveal">
+        <div class="product-icon"><svg viewBox="0 0 24 24"><path d="M4 6c5 0 6 6 10 6M4 18c5 0 6-6 10-6M4 12h10M14 12h6M17 9l3 3-3 3"/></svg></div>
+        <h3>KTMS</h3>
+        <div class="tag">LLM gateway · gRPC &amp; HTTP</div>
+        <p>Your services talk to one endpoint. KTMS holds the vendor keys, picks the model, retries elsewhere when a vendor is down and records every call.</p>
+        <ul>
+          <li>Vendor keys encrypted in Postgres (AES-256-GCM): OpenAI, Anthropic, Gemini, DeepSeek</li>
+          <li>Routing rules by effort and attributes, changed live</li>
+          <li>RPM and daily token budgets per key and per user</li>
+          <li>Batches at 50% off, speech, images, typed <code>Judge</code></li>
+          <li>Pool of your own GPU nodes with cloud fallback</li>
+        </ul>
+        <div class="product-links">
+          <a href="/docs/ktms/">Docs →</a>
+          <a href="https://github.com/ai-process/ktms">GitHub</a>
+          <a href="https://hub.docker.com/r/coyl/ktms">Docker Hub</a>
+        </div>
+      </article>
+      <article class="product reveal d1">
+        <div class="product-icon"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
+        <h3>light-tokenmeter</h3>
+        <div class="tag">Usage meter · Postgres / ClickHouse</div>
+        <p>Your apps, or KTMS, push one event per model call. Ask who is spending your tokens, and whether they are worth it.</p>
+        <ul>
+          <li>Append-only, idempotent events: sending twice is harmless</li>
+          <li>Up to 500 events per batch in a single <code>COPY</code></li>
+          <li>Daily summaries with any filters and groupings</li>
+          <li>HTTP/JSON for dashboards, gRPC for services</li>
+          <li>Optional ClickHouse for large volumes, with TTL</li>
+        </ul>
+        <div class="product-links">
+          <a href="/docs/light-tokenmeter/">Docs →</a>
+          <a href="https://github.com/ai-process/light-tokenmeter">GitHub</a>
+          <a href="https://hub.docker.com/r/coyl/light-tokenmeter">Docker Hub</a>
+        </div>
+      </article>
+      <article class="product reveal d2">
+        <div class="product-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 21h8M7 13h4M7 15.5h7"/></svg></div>
+        <h3>ktms-admin</h3>
+        <div class="tag">Web console · one static binary</div>
+        <p>Manage models, routing rules and keys, try a prompt in the playground and read the spend dashboard. No more <code>grpcurl</code>.</p>
+        <ul>
+          <li>Google sign-in with wildcard allowlists, read-only users</li>
+          <li>Greedy / worthy verdict per project, user and model</li>
+          <li>Works with KTMS, light-tokenmeter or both</li>
+          <li>UI embedded in the Go binary, no front-end build</li>
+          <li>Light and dark themes, usable from a phone</li>
+        </ul>
+        <div class="product-links">
+          <a href="/docs/ktms-admin/">Docs →</a>
+          <a href="https://github.com/ai-process/ktms-admin">GitHub</a>
+          <a href="https://hub.docker.com/r/coyl/llm-proxy-admin">Docker Hub</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="features" style="padding-top:24px">
+  <div class="container">
+    <div class="section-head center reveal">
+      <span class="eyebrow">Why KTMS</span>
+      <h2>Stop hardcoding model names.<br><span class="grad-text">Let the gateway decide.</span></h2>
+    </div>
+
+    <div class="feature">
+      <div class="feature-text reveal">
+        <div class="feature-num">1</div>
+        <h3>Ask for effort, not for a model</h3>
+        <p>Clients send <code>effort: LOW | MEDIUM | HIGH</code> and free-form attributes. An ordered rule list maps them to a chain of models with fallbacks.</p>
+        <p>Rules change at runtime over the admin API or in ktms-admin. A new model release is a config change, not a refactor across a dozen services.</p>
+      </div>
+      <div class="card reveal d1">
+        <div class="card-title"><span>Routing rules</span><span>live</span></div>
+        <div class="rule"><span class="effort low">LOW</span><div class="chain"><span class="primary">local · gemma</span><em>→</em><span>gemini-flash</span></div></div>
+        <div class="rule"><span class="effort med">MEDIUM</span><div class="chain"><span class="primary">gpt-mini</span><em>→</em><span>deepseek-chat</span><em>→</em><span>gemini-flash</span></div></div>
+        <div class="rule"><span class="effort high">HIGH</span><div class="chain"><span class="primary">claude</span><em>→</em><span>gpt</span><em>→</em><span>gemini-pro</span></div></div>
+        <div class="rule"><span class="effort high">HIGH</span><div class="chain"><em>if</em><span>tenant=eu</span><em>→</em><span class="primary">gemini-pro</span><em>→</em><span>local · llama</span></div></div>
+      </div>
+    </div>
+
+    <div class="feature flip">
+      <div class="feature-text reveal">
+        <div class="feature-num">2</div>
+        <h3>Your GPUs first, the cloud when they are busy</h3>
+        <p>Run Ollama, vLLM or llama.cpp on your own hardware. <code>ktms-node-agent</code> registers each machine and reports VRAM, time to first token and tokens per second.</p>
+        <p>KTMS balances the pool with Smooth WRR, keeps hot or overloaded nodes out of rotation and, with <code>nodes_first</code>, spills over to cloud vendors only when local capacity runs out.</p>
+      </div>
+      <div class="card reveal d1">
+        <div class="card-title"><span>Node pool</span><span>placement: nodes_first</span></div>
+        <div class="node"><div class="node-name">gpu-01<small>vLLM · 48 GB</small></div><div class="bar"><i data-w="72%"></i></div><div class="node-state ok">HEALTHY</div></div>
+        <div class="node"><div class="node-name">gpu-02<small>Ollama · 24 GB</small></div><div class="bar"><i data-w="54%"></i></div><div class="node-state ok">HEALTHY</div></div>
+        <div class="node"><div class="node-name">gpu-03<small>llama.cpp · 24 GB</small></div><div class="bar"><i data-w="97%"></i></div><div class="node-state warn">SUSPECT</div></div>
+        <div class="node"><div class="node-name">cloud<small>OpenAI · Gemini</small></div><div class="bar"><i data-w="12%"></i></div><div class="node-state cloud">overflow</div></div>
+      </div>
+    </div>
+
+    <div class="feature">
+      <div class="feature-text reveal">
+        <div class="feature-num">3</div>
+        <h3>Budgets that actually stop the spend</h3>
+        <p>Per-model requests-per-minute and daily token budgets for every API key and every end user, enforced in Redis before the vendor ever sees the request.</p>
+        <p>Non-interactive work goes through the vendors' Batch APIs at a 50% discount, with background polling and a synchronous fallback.</p>
+      </div>
+      <div class="card reveal d1">
+        <div class="card-title"><span>Daily token budgets</span><span>today</span></div>
+        <div class="budget"><div class="budget-row"><span>key · support-bot</span><span>1.2M / 3M</span></div><div class="bar"><i data-w="40%"></i></div></div>
+        <div class="budget"><div class="budget-row"><span>key · nightly-reports</span><span>4.1M / 5M</span></div><div class="bar"><i data-w="82%"></i></div></div>
+        <div class="budget"><div class="budget-row"><span>user · u-4821</span><span>200k / 200k</span></div><div class="bar"><i data-w="100%"></i></div></div>
+        <div class="limit-hit">u-4821 → ResourceExhausted: daily token budget reached</div>
+      </div>
+    </div>
+
+    <div class="feature flip">
+      <div class="feature-text reveal">
+        <div class="feature-num">4</div>
+        <h3>Know who is greedy and who is worthy</h3>
+        <p>KTMS sends one usage event per call to light-tokenmeter. Slice spend by project, user, action, vendor or model, with failure rates and latency next to the cost.</p>
+        <p>ktms-admin turns it into a verdict: the workloads that burn tokens for little value, and the ones that earn them.</p>
+      </div>
+      <div class="card reveal d1">
+        <div class="card-title"><span>Spend by action</span><span>last 7 days</span></div>
+        <div class="spend-row"><div class="who">answer-ticket<small>support-bot</small></div><div class="tok">8.4M tok</div><span class="verdict worthy">worthy</span></div>
+        <div class="spend-row"><div class="who">summarize-thread<small>inbox</small></div><div class="tok">2.1M tok</div><span class="verdict worthy">worthy</span></div>
+        <div class="spend-row"><div class="who">retry-loop<small>agent-sandbox</small></div><div class="tok">19.7M tok</div><span class="verdict greedy">greedy</span></div>
+        <div class="spend-row"><div class="who">rerank-all<small>search</small></div><div class="tok">11.3M tok</div><span class="verdict greedy">greedy</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="architecture" style="padding-top:24px">
+  <div class="container">
+    <div class="section-head center reveal">
+      <span class="eyebrow">How it fits together</span>
+      <h2>One endpoint in. <span class="grad-text">Every model out.</span></h2>
+      <p>Your services keep a single address and a scoped <code>ktms_…</code> key. Everything behind it can change without a deploy.</p>
+    </div>
+    <div class="flow reveal">
+      <div class="flow-col">
+        <div class="flow-box"><b>Your services</b><small>gRPC clients, typed Protobuf</small></div>
+        <div class="flow-box"><b>OpenAI SDKs &amp; agents</b><small>base_url → :8080/v1</small></div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-box flow-core">
+        <b class="grad-text">KTMS</b>
+        <div><small>Postgres for config &amp; encrypted keys · Redis for limits</small></div>
+        <div class="chips"><span>vendor keys</span><span>effort rules</span><span>fallbacks</span><span>RPM &amp; budgets</span><span>batches</span><span>node pool</span></div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-col">
+        <div class="flow-box"><b>Cloud vendors</b><small>OpenAI · Anthropic · Gemini · DeepSeek</small></div>
+        <div class="flow-box"><b>Your GPUs</b><small>Ollama · vLLM · llama.cpp</small></div>
+      </div>
+    </div>
+    <div class="flow-down reveal">↓ one usage event per call</div>
+    <div class="flow-bottom reveal">
+      <div class="flow-box"><b>light-tokenmeter</b><small>who spends, on what, and is it worth it</small></div>
+      <div class="flow-box"><b>ktms-admin</b><small>models, rules, keys, playground, spend</small></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="quickstart">
+  <div class="container qs">
+    <div class="reveal">
+      <span class="eyebrow">Quick start</span>
+      <h2>From <code style="font-size:.8em">git clone</code> to a <span class="grad-text">routed request</span></h2>
+      <div class="steps">
+        <div class="step"><div><h4>Start the stack</h4><p>Docker Compose brings up KTMS with Postgres and Redis, seeds default models and rules and a dev key.</p></div></div>
+        <div class="step"><div><h4>Point your SDK at it</h4><p>Change <code>base_url</code> and use <code>model: "auto"</code>. Routing, fallbacks and limits come for free.</p></div></div>
+        <div class="step"><div><h4>Go to production</h4><p>Docker images for amd64 and arm64, a Helm chart and a production checklist are in the <a href="/docs/ktms/">KTMS docs</a>.</p></div></div>
+      </div>
+    </div>
+    <div class="code-tabs reveal d1" data-tabs>
+      <div class="tab-bar" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="0">Docker Compose</button>
+        <button role="tab" aria-selected="false" data-tab="1">curl</button>
+        <button role="tab" aria-selected="false" data-tab="2">Python</button>
+        <button class="copy" data-copy>Copy</button>
+      </div>
+<pre data-panel="0"><span class="k">git</span> clone https://github.com/ai-process/ktms.git
+<span class="k">cd</span> ktms
+
+<span class="c"># any of OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY</span>
+OPENAI_API_KEY=sk-... <span class="k">docker</span> compose up -d --build
+
+<span class="k">curl</span> -s http://localhost:8080/readyz   <span class="c"># {"status":"ready"}</span></pre>
+<pre data-panel="1" hidden><span class="k">curl</span> -s http://localhost:8080/v1/chat/completions \
+  -H <span class="s">"Authorization: Bearer ktms_dev_default_key"</span> \
+  -H <span class="s">"Content-Type: application/json"</span> \
+  -d <span class="s">'{"model":"auto","messages":[{"role":"user","content":"Say hi in three words."}]}'</span>
+
+<span class="c"># response headers tell you who answered and why:</span>
+<span class="c"># X-KTMS-Vendor, X-KTMS-Rule, X-KTMS-Placement</span></pre>
+<pre data-panel="2" hidden><span class="k">from</span> openai <span class="k">import</span> OpenAI
+
+client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>, api_key=<span class="s">"ktms_dev_default_key"</span>)
+response = client.chat.completions.create(
+    model=<span class="s">"auto"</span>,  <span class="c"># or "auto:low", "auto:high"</span>
+    messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"Say hi in three words."</span>}],
+)
+<span class="k">print</span>(response.choices[0].message.content)</pre>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:24px">
+  <div class="container">
+    <div class="principles">
+      <div class="principle reveal"><span class="eyebrow">Honest open source</span><h4>Everything is MIT</h4><p>No enterprise edition, no paywalled security features, no licence keys and no telemetry. Fork it and run it forever.</p></div>
+      <div class="principle reveal d1"><span class="eyebrow">Small on purpose</span><h4>Behaves like a proxy</h4><p>Static Go binaries and small images that start in milliseconds, fit scale-to-zero and leave the memory to your models.</p></div>
+      <div class="principle reveal d2"><span class="eyebrow">Typed contracts</span><h4>gRPC first</h4><p>Protobuf APIs with streaming and reflection for services, plus an OpenAI-compatible HTTP API for everything else.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="docs">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Documentation</span>
+      <h2>Read it, run it, <span class="grad-text">ship it</span></h2>
+      <p>Guides for every service, from a single Docker command to a GPU pool in production.</p>
+    </div>
+    <div class="docs-grid">
+      <a class="doc-card reveal" href="/docs/architecture/"><h4>Architecture &amp; deployment</h4><p>How the services fit together, with one Compose file for the whole stack.</p></a>
+      <a class="doc-card reveal d1" href="/docs/ktms/"><h4>KTMS gateway</h4><p>APIs, effort routing, fallbacks, limits, batches, speech and images.</p></a>
+      <a class="doc-card reveal d2" href="/docs/local-nodes/"><h4>Local GPU node pool</h4><p>Self-registering nodes, health states, Smooth WRR and cloud fallback.</p></a>
+      <a class="doc-card reveal" href="/docs/quickstart-local-node/"><h4>Quick start: local node</h4><p>Connect Ollama, vLLM, TGI or llama.cpp to KTMS step by step.</p></a>
+      <a class="doc-card reveal d1" href="/docs/light-tokenmeter/"><h4>light-tokenmeter</h4><p>Events, batches, summaries and the greedy vs worthy analysis.</p></a>
+      <a class="doc-card reveal d2" href="/docs/ktms-admin/"><h4>ktms-admin console</h4><p>Sign-in, allowlists, gateway management and the spend dashboard.</p></a>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0">
+  <div class="container">
+    <div class="blog-card reveal">
+      <div>
+        <span class="eyebrow">Engineering blog</span>
+        <h3>Notes from running LLMs in production</h3>
+        <p>Architecture patterns, benchmarks with the method attached, and what we learn while building KTMS.</p>
+        <ul class="blog-posts" data-blog-posts hidden></ul>
+      </div>
+      <a class="btn btn-ghost" href="https://blog.ai-process.dev/">Read the blog →</a>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="container reveal">
+    <h2>Put one switchboard<br>in front of <span class="grad-text">all your models</span></h2>
+    <p>Free, self-hosted and MIT-licensed. Run it next to your current setup and compare.</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="https://github.com/ai-process/ktms">Star KTMS on GitHub</a>
+      <a class="btn btn-ghost" href="/docs/">Read the docs</a>
+    </div>
+  </div>
+</section>

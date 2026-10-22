@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "light-tokenmeter Architecture",
+    "output": "diagrams/light-tokenmeter.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/ai-process/light-tokenmeter",
+      "revision": "26143e217c132c176fd6eabf29b475b4f91e7c61"
+    }
+  },
+  "components": [
+    {
+      "id": "producers",
+      "type": "external",
+      "label": "llm-proxy & Apps",
+      "sublabel": "Event producers",
+      "pos": [40, 80],
+      "size": [150, 64],
+      "sources": [
+        { "path": "proto/usage/v1/usage.proto", "line": 1, "end_line": 45, "label": "UsageService proto" },
+        { "path": "internal/server/http.go", "line": 42, "end_line": 43, "label": "HTTP event ingestion" }
+      ]
+    },
+    {
+      "id": "consumers",
+      "type": "frontend",
+      "label": "llm-proxy-admin",
+      "sublabel": "Dashboards & curl",
+      "pos": [40, 280],
+      "size": [150, 64],
+      "sources": [
+        { "path": "internal/server/http.go", "line": 39, "end_line": 44, "label": "HTTP summary & health API" }
+      ]
+    },
+    {
+      "id": "grpc_srv",
+      "type": "backend",
+      "label": "gRPC Server",
+      "sublabel": "UsageService :9090",
+      "pos": [400, 80],
+      "size": [170, 64],
+      "sources": [
+        { "path": "internal/server/grpc.go", "line": 31, "end_line": 84, "label": "gRPC handlers" },
+        { "path": "internal/server/grpc.go", "line": 170, "end_line": 199, "label": "GetUsageByMeta RPC" }
+      ]
+    },
+    {
+      "id": "http_srv",
+      "type": "backend",
+      "label": "HTTP Server",
+      "sublabel": "REST & Probes :8080",
+      "pos": [400, 280],
+      "size": [170, 64],
+      "sources": [
+        { "path": "internal/server/http.go", "line": 26, "end_line": 91, "label": "HTTP routes & health" }
+      ]
+    },
+    {
+      "id": "service",
+      "type": "backend",
+      "label": "UsageService",
+      "sublabel": "Domain validation",
+      "pos": [690, 180],
+      "size": [170, 64],
+      "sources": [
+        { "path": "internal/service/service.go", "line": 18, "end_line": 93, "label": "UsageService logic" },
+        { "path": "internal/domain/event.go", "line": 1, "end_line": 90, "label": "Event validation" }
+      ]
+    },
+    {
+      "id": "repo",
+      "type": "backend",
+      "label": "Repository",
+      "sublabel": "COPY & SQL builder",
+      "pos": [980, 180],
+      "size": [170, 64],
+      "sources": [
+        { "path": "internal/repository/repository.go", "line": 27, "end_line": 161, "label": "InsertOne & InsertBatch" },
+        { "path": "internal/repository/repository.go", "line": 164, "end_line": 373, "label": "Summary & meta queries" }
+      ]
+    },
+    {
+      "id": "clickhouse",
+      "type": "database",
+      "label": "ClickHouse",
+      "sublabel": "usage_events MergeTree",
+      "tag": "TTL 90 days",
+      "pos": [690, 360],
+      "size": [170, 64],
+      "sources": [
+        { "path": "internal/storage/clickhouse/client.go", "line": 28, "end_line": 85, "label": "ClickHouse connection & schema" },
+        { "path": "internal/storage/clickhouse/batch_writer.go", "line": 20, "end_line": 95, "label": "BatchWriter deduplication & flush" }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "usage_events table",
+      "tag": "append-only",
+      "pos": [980, 360],
+      "size": [170, 64],
+      "sources": [
+        { "path": "internal/database/migrations/001_create_usage_events.sql", "line": 1, "end_line": 40, "label": "usage_events schema" },
+        { "path": "internal/database/migrations/002_meta_job_index.sql", "line": 5, "end_line": 7, "label": "meta.job_id index" },
+        { "path": "internal/database/migrations/003_event_time_index.sql", "line": 1, "end_line": 8, "label": "event time indexes" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "light-tokenmeter Service",
+      "wraps": ["grpc_srv", "http_srv", "service", "repo"]
+    }
+  ],
+  "connections": [
+    { "id": "prod-grpc", "from": "producers", "to": "grpc_srv", "label": "RecordUsageEvent(s)", "variant": "emphasis", "labelDy": -14 },
+    { "id": "prod-meta", "from": "producers", "to": "grpc_srv", "label": "GetUsageByMeta", "labelDy": 14 },
+    { "id": "prod-http", "from": "producers", "to": "http_srv", "label": "POST /v1/usage/events", "fromSide": "bottom", "toSide": "top" },
+    { "id": "cons-http", "from": "consumers", "to": "http_srv", "label": "GET /v1/usage/summary", "variant": "emphasis", "labelDy": -14 },
+    { "id": "cons-ready", "from": "consumers", "to": "http_srv", "label": "GET /readyz", "labelDy": 14 },
+    { "id": "grpc-svc", "from": "grpc_srv", "to": "service", "label": "Record / Query" },
+    { "id": "http-svc", "from": "http_srv", "to": "service", "label": "Record / Summary" },
+    { "id": "svc-repo", "from": "service", "to": "repo", "label": "Domain calls" },
+    { "id": "svc-ch", "from": "service", "to": "clickhouse", "label": "Batch & Analytics", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
+    { "id": "repo-pg", "from": "repo", "to": "postgres", "label": "COPY & GROUP BY", "fromSide": "bottom", "toSide": "top", "labelDy": 24 }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Idempotent Ingestion",
+      "items": [
+        "Every event carries a UUID; ON CONFLICT (event_id) DO NOTHING prevents double counting",
+        "Batches up to 500 events stream into a temp table via pgx COPY before atomic insert"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Usage Analytics & Meta Queries",
+      "items": [
+        "Daily summaries bucketed by event time with 10k safety cap and partial index on meta.job_id",
+        "Optional ClickHouse backend provides async batching with in-memory deduplication and 90-day TTL"
+      ]
+    }
+  ]
+}

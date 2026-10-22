@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+{% include head.html %}
+</head>
+<body>
+{% include nav.html %}
+<main class="container docs-layout">
+  <aside class="docs-side">
+    <h6>Documentation</h6>
+    <ul>
+      <li><a href="/docs/"{% if page.url == '/docs/' %} class="active"{% endif %}>Overview</a></li>
+      {% assign docs = site.pages | where_exp: "p", "p.nav_order" | sort: "nav_order" %}
+      {% for p in docs %}
+      <li><a href="{{ p.url }}"{% if p.url == page.url %} class="active"{% endif %}>{{ p.title }}</a></li>
+      {% endfor %}
+    </ul>
+    <h6>Repositories</h6>
+    <ul>
+      <li><a href="https://github.com/ai-process/ktms">ai-process/ktms</a></li>
+      <li><a href="https://github.com/ai-process/light-tokenmeter">ai-process/light-tokenmeter</a></li>
+      <li><a href="https://github.com/ai-process/ktms-admin">ai-process/ktms-admin</a></li>
+    </ul>
+  </aside>
+  <article class="prose">
+{{ content }}
+  </article>
+</main>
+{% include footer.html %}
+</body>
+</html>
