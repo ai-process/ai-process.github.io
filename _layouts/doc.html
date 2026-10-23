@@ -10,8 +10,15 @@
     <h6>Documentation</h6>
     <ul>
       <li><a href="/docs/"{% if page.url == '/docs/' %} class="active"{% endif %}>Overview</a></li>
-      {% assign docs = site.pages | where_exp: "p", "p.nav_order" | sort: "nav_order" %}
+      {% assign docs = site.pages | where_exp: "p", "p.nav_order" | where_exp: "p", "p.nav_group == nil" | sort: "nav_order" %}
       {% for p in docs %}
+      <li><a href="{{ p.url }}"{% if p.url == page.url %} class="active"{% endif %}>{{ p.title }}</a></li>
+      {% endfor %}
+    </ul>
+    <h6>Prompts for AI assistants</h6>
+    <ul>
+      {% assign prompts = site.pages | where: "nav_group", "prompts" | sort: "nav_order" %}
+      {% for p in prompts %}
       <li><a href="{{ p.url }}"{% if p.url == page.url %} class="active"{% endif %}>{{ p.title }}</a></li>
       {% endfor %}
     </ul>
