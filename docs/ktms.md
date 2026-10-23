@@ -248,7 +248,9 @@ Postgres and Redis and pick up configuration changes within `ROUTING_RELOAD_SECO
 
 ### Helm chart (Kubernetes)
 
-An official Helm v3 chart is provided under [`deploy/helm/ktms`](https://github.com/ai-process/ktms/tree/main/deploy/helm/ktms):
+An official Helm v3 chart is published with every release at `oci://ghcr.io/ai-process/charts/ktms`
+(source in [`deploy/helm/ktms`](https://github.com/ai-process/ktms/tree/main/deploy/helm/ktms)). The chart version is the release version, and
+it runs the image of the same version:
 
 ```bash
 # 1. Create a secret with your database URL and encryption keys
@@ -258,7 +260,7 @@ kubectl create secret generic ktms-secrets \
   --from-literal=BOOTSTRAP_ADMIN_KEY="$(head -c 24 /dev/urandom | base64 | tr -d '/+=')"
 
 # 2. Install the release
-helm install ktms ./deploy/helm/ktms \
+helm install ktms oci://ghcr.io/ai-process/charts/ktms --version 1.0.0 \
   --set secrets.existingSecret=ktms-secrets \
   --set ingress.enabled=true \
   --set "ingress.hosts[0].host=proxy.example.com" \
@@ -348,6 +350,22 @@ Cloudflare tunnel per attempt.
 - **Mind your Postgres connection count.** Each replica holds up to `DB_MAX_CONNS`
   (default 25) connections.
 - **Back up Postgres.** All configuration lives there; see [Backups](#backups-and-the-encryption-keyring).
+- **Keep internal ports internal.** Expose gRPC (`:9090`, clients and node agents) and HTTP
+  (`:8080`). Metrics (`:9091`) belong on the cluster network. `/healthz` and `/readyz` share `:8080`
+  with the API, and `/readyz` reports database state, so block both paths at a public ingress.
+- **Network policies.** Ingress: clients, node agents, the console, Prometheus (`:9091`) and the
+  kubelet probes. Egress: the vendors, Postgres, Redis, the collector, the nodes, and what you
+  configured (`OTEL_EXPORTER_OTLP_ENDPOINT`, `SENTRY_DSN`, `LATENT_ENCODER_URL`).
+- **TLS to dependencies.** Use `sslmode=require` for Postgres and `USAGE_COLLECTOR_TLS` for the
+  collector. The Redis client has no TLS: keep Redis on a private network with `REDIS_PASSWORD`.
+- **Least-privilege keys.** `generate` for clients; `admin` only for the console and operators.
+- **Spend limits on every client key** ([Spend limits](#5-spend-limits-optional)).
+- **Secrets.** Keep `KTMS_ENCRYPTION_KEYS`, `DATABASE_URL` and `USAGE_COLLECTOR_TOKEN` in a secret
+  manager; the collector token needs only light-tokenmeter's `write` scope. Rotate the keyring
+  with [Rotating the encryption key](#rotating-the-encryption-key).
+- **Nodes.** Leave `NODE_ALLOW_LOCALHOST_ENDPOINTS=false` outside development.
+- **Alerts.** Wire up the [suggested alerts](#metrics-and-alerts); Redis and the collector fail
+  open, so without them a dead limiter or lost accounting goes unnoticed.
 
 ## Configuration reference
 
@@ -448,6 +466,29 @@ Keys look like `ktms_<hex>` (keys minted before the rename start with `llm_` and
 Scopes: `generate` (data plane) and `admin` (implies everything).
 `ListAPIKeys` and `RevokeAPIKey` do what they say.
 
+A key can carry its own policy, on top of its team's and each model's `rpm`, at minting
+(`"policy": {...}`) or later with `SetAPIKeyPolicy` (it replaces the policy; the key's next call
+uses it):
+
+```bash
+grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" \
+  -d '{"name":"billing-service","policy":{"allowed_models":["gpt-4o-mini"],"rpm_limit":120,"tpm_limit":200000}}' \
+  localhost:9090 ktms.v1.AdminService/SetAPIKeyPolicy
+```
+
+- `allowed_models`: the models the key may call; empty allows any. A chain keeps only the models
+  both the key's and its team's lists allow; an override outside them, or a chain with none left,
+  is `PERMISSION_DENIED` (the message names `key` or `team`).
+- `rpm_limit`: calls per minute over all models, a minute of them as burst.
+- `tpm_limit`: tokens per minute over all models (GCRA weighted by tokens). A call books its input
+  estimate when admitted and its real input + output when it ends, so an underestimate is paid
+  for by the next calls; a call larger than a minute of tokens never fits and is refused with
+  `FAILED_PRECONDITION request_too_large` (HTTP 400). A cache hit counts as a call, with no tokens.
+- Both rates count text generation, embeddings, judgments, speech and images (media calls by
+  their real tokens only), not batches. Refusals are `RESOURCE_EXHAUSTED` `throttled:key_rpm` /
+  `throttled:key_tpm` with `RetryInfo` (HTTP 429 with `Retry-After`). Like every limit they need
+  Redis and fail open without it.
+
 ### 2. Vendor keys (per client)
 
 A vendor credential is assigned to **one** API key and encrypted at rest. A client can
@@ -489,6 +530,8 @@ self-hosted OpenAI-compatible server such as Ollama or llama.cpp; the model's `e
     "price_out_peak_per_mtok": 0,
     "price_in_batch_per_mtok": 0,           // batch pricing; 0 defaults to half normal price
     "price_out_batch_per_mtok": 0,
+    "price_cache_read_per_mtok": 0.075,     // cached input; 0 = vendor default (see below)
+    "price_cache_write_per_mtok": 0,
     "daily_tokens_per_key": 50000000,       // per API key per UTC day, 0 = unlimited
     "daily_tokens_per_user": 500000,        // per attributes["user_id"] (or svc:<key_name> fallback) per UTC day
     "enabled": true } }
@@ -498,6 +541,19 @@ self-hosted OpenAI-compatible server such as Ollama or llama.cpp; the model's `e
 
 When `price_in_batch_per_mtok` and `price_out_batch_per_mtok` are `0`, the proxy automatically defaults them to half the regular price (`price_in_per_mtok / 2`, `price_out_per_mtok / 2`).
 
+**Prompt caching.** Input served from or written to the vendor's prompt cache is priced at
+`price_cache_read_per_mtok` and `price_cache_write_per_mtok` (standard rates; peak and batch calls
+scale them like input). At `0` the vendor default applies, chosen never to undercharge: for
+`anthropic`, 0.1x input to read and 1.25x to write (the 5-minute cache); for `bedrock`, 0.25x
+and 1.25x (Claude reads at 0.1x and Nova at 0.25x there); for every other vendor, the input
+price. Set the read rate for OpenAI, Gemini and DeepSeek models to get their discount; the seeded
+OpenAI and Gemini models carry theirs. KTMS reads the cached part from each vendor (`cache_read_input_tokens` and
+`cache_creation_input_tokens`, `prompt_tokens_details.cached_tokens`, DeepSeek's
+`prompt_cache_hit_tokens`, Gemini's `cachedContentTokenCount`, Bedrock's `cacheRead/WriteInputTokens`),
+bills spend limits by it, sends it to light-tokenmeter as `cache_read_tokens` and
+`cache_write_tokens`, and returns it in `TokensUsage.cache_read` / `cache_write` and, over HTTP,
+`usage.prompt_tokens_details.cached_tokens`.
+
 Capabilities a model may declare:
 
 | Capability | Meaning |
@@ -505,6 +561,7 @@ Capabilities a model may declare:
 | `batch` | Can serve asynchronous batch text generation requests (`SubmitBatch`). |
 | `google_search` | Can serve requests with `enable_google_search`. |
 | `no_thinking` | The model reasons by default and bills the reasoning as output (DeepSeek V4, Gemma 4 on Ollama). The proxy turns it off: `thinking: {"type": "disabled"}` for DeepSeek, `reasoning_effort: "none"` for Ollama, and for `local` models when the serving node runs Ollama (other engines get no switch). OpenAI-compatible vendors only. |
+| `prompt_cache` | Anthropic only: puts `cache_control` breakpoints after the tools, the system prompt and, in a multi-turn conversation, the latest turn, so repeated prefixes are read at 0.1x input. A new prefix is written at 1.25x, so set it on models whose instructions or conversations repeat. |
 | `vision` | Can process image parts in multimodal messages (`ImagePart`). |
 | `audio_input` | Can process audio parts in multimodal messages (`AudioPart`). |
 | `pdf_input` | Can process PDF document parts in multimodal messages (`DocumentPart`). |
@@ -559,8 +616,8 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" -d '{"spend_limit":
   `svc:<key_name>`); `subject_id` `*` is the default for every subject of that type.
   `period` is a UTC `day` or `month`.
 - Before each model in the chain is called, its worst case
-  (`estimated input × input price + max tokens × output price`, or
-  `SPEND_DEFAULT_OUTPUT_RESERVE_TOKENS` without max tokens) is reserved atomically on every
+  (`estimated input × the dearer of the input and cache-write price + max tokens × output price`,
+  or `SPEND_DEFAULT_OUTPUT_RESERVE_TOKENS` without max tokens) is reserved atomically on every
   applicable counter by one Redis Lua script; when the call ends the reservation is settled
   to the actual cost. A call that would cross any cap is refused, so a cheaper model further
   down the chain may still be tried.
@@ -571,6 +628,12 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" -d '{"spend_limit":
   period resets (HTTP: 429 `insufficient_quota` plus `Retry-After`).
 - `ListSpendLimits`, `DeleteSpendLimit` and `GetConfig` show and lift caps. Every usage event
   carries its `cost_nanousd`, which light-tokenmeter sums per day, model, user or job.
+- `GetSpend` shows where a subject stands now, from the counters that refuse calls: for a key
+  (`{"subject_type":"key","subject_id":"billing-service"}`), user or team, one window per period
+  with `spent_nanousd`, `limit_nanousd`, `remaining_nanousd` and `resets_at`. Spend is counted
+  only under a cap (a `*` limit counts for every subject): an uncapped window says
+  `metered: false`, and a cap set mid-period counts from then on. A new cap shows once the config
+  reloads: right away on the replica that set it, within `ROUTING_RELOAD_SECONDS` on the others.
 
 ### 6. Organizations and teams (optional)
 
@@ -682,6 +745,21 @@ Run the same command again to update; a re-run only restarts what changed, and a
 fails to start is rolled back. Remove everything with the same command plus `--uninstall`
 (downloaded models stay in `~/.ollama`).
 
+**A machine that ran the node before the rename** (`llm-proxy-node`, in `~/.llm-proxy-node`) is
+taken over by the same command. Its node key is reused when it was minted for the same
+`--node-id` (for another id you are asked first), and its Ollama build instead of a download.
+Once everything else is in place, right before the new Ollama starts, its services
+(`com.llm-proxy.*` launch agents, `llm-proxy-*` user units) are stopped for good and their files
+and the old directory moved to `~/.ktms-node.backup/<time>/`; an install that fails before that
+leaves the old node running. `--dry-run` shows this plan and changes nothing; `--keep-legacy`
+leaves the old directory in place, though its services still go, or two nodes would share one id
+and port. `--uninstall` retires old services too; backups survive it unless you add
+`--purge-backups`.
+
+The installer also refuses to run Ollama on an address another process already listens on
+(another Ollama, say), since the model would be pulled into that one; it names the process. Stop
+it, or set `KTMS_OLLAMA_ADDR=127.0.0.1:PORT`.
+
 ### If the node does not show up
 
 Run the same command with `--doctor`. It says in plain words what is wrong: Ollama not answering,
@@ -696,6 +774,7 @@ that cannot come up (outbound port 7844 blocked). Logs are in `~/.ktms-node/logs
 | `key belongs to node "x"` | The key is bound to one machine. Use the node id it was minted for, or ask for a new key. |
 | `model "x" not permitted for this node key` | The key's `allowed_models` excludes a model on the machine. The installer reports only `--model`; for a hand-run agent pass `--only-model`. |
 | Needs a new key | Re-run with `--new-key`. |
+| `127.0.0.1:11435 is taken by …` | Another process holds the node's Ollama port. Stop it, or pick another address with `KTMS_OLLAMA_ADDR`. |
 | Address changed after a restart | Expected: quick tunnel addresses change, and the node re-registers by itself. |
 | Node is offline after a Mac reboot | macOS starts the services at login, not at boot. Log in, or enable automatic login (System Settings > Users & Groups). |
 | The machine sleeps | The services keep it awake while they run, on a Mac only while plugged in. Closing a laptop lid still sleeps it. |
@@ -1046,7 +1125,7 @@ Errors use OpenAI's shape, `{"error": {"message", "type", "param", "code"}}`, an
 | --- | --- | --- |
 | 400 | `invalid_request_error` | `output_truncated`, `no_capable_model`, `no_vendor_key`, `not_configured`; validation messages |
 | 401 / 403 | `authentication_error` / `permission_error` | missing or invalid key, missing scope |
-| 429 | `rate_limit_error` | `throttled:rpm`, `throttled:budget_key`, `throttled:budget_user` (with `Retry-After`) |
+| 429 | `rate_limit_error` | `throttled:rpm`, `throttled:key_rpm`, `throttled:key_tpm`, `throttled:budget_key`, `throttled:budget_user` (with `Retry-After`) |
 | 429 | `insufficient_quota` | `insufficient_quota`; the message names the cap, e.g. `throttled:spend_key_daily`. `Retry-After` is the seconds until the period resets (UTC midnight or month start). |
 | 501 | `server_error` | `ffmpeg_missing` (Gemini speech synthesis invoked without ffmpeg on PATH or in container) |
 | 502 | `server_error` | `vendor_error` |
@@ -1123,9 +1202,11 @@ lexical hash encoder that folds case, homoglyphs, zero-width and spaced-out lett
 | `UNAVAILABLE` | `vendors_unavailable` | The whole chain failed: retry with backoff. When vendors paused every model in the chain with `Retry-After`, details carry `RetryInfo` (HTTP: `Retry-After` header): wait that long first. |
 | `UNAVAILABLE` | `auth_unavailable`, `storage_unavailable` | Postgres is unreachable for a key check (past `AUTH_STALE_IF_ERROR`) or a batch or admin write. Retry with backoff. |
 | `RESOURCE_EXHAUSTED` | `throttled:rpm`, `throttled:budget_key`, `throttled:budget_user` | Back off; don't hot-retry. Daily budget exhausted before batch submission. |
+| `RESOURCE_EXHAUSTED` | `throttled:key_rpm`, `throttled:key_tpm` | The key's own `rpm_limit` or `tpm_limit`. Details carry `RetryInfo`: wait that long. |
+| `FAILED_PRECONDITION` | `request_too_large` | The call needs more tokens than a minute of the key's `tpm_limit`; it never fits. Shrink it or raise the limit. |
 | `RESOURCE_EXHAUSTED` | `throttled:spend_key_daily`, `throttled:spend_key_monthly`, `throttled:spend_user_daily`, `throttled:spend_user_monthly`, `throttled:spend_team_monthly` | Spend limit reached. Details carry `ErrorInfo{reason: "insufficient_quota"}` and `RetryInfo` until the period resets. |
 | `UNAVAILABLE` | `throttled:spend_unavailable` | Spend counters unreachable with `SPEND_LIMITS_FAIL_MODE=closed`. Retry with backoff. |
-| `PERMISSION_DENIED` | `model "<id>" not allowed for team`, `no models in chain allowed for team`, `model access denied by team policy` (batch) | The key's team may not use that model. |
+| `PERMISSION_DENIED` | `model "<id>" not allowed for <key\|team>`, `no models in chain allowed for <key\|team>`, `model access denied by key or team policy` (batch) | The key's or its team's `allowed_models` excludes that model. |
 | `FAILED_PRECONDITION` | `output_truncated` | Raise `max_output_tokens`; don't retry as-is. |
 | `FAILED_PRECONDITION` | `no_capable_model` | No model in the matched chain can serve this request, modality, or batch capability. |
 | `FAILED_PRECONDITION` | `no_vendor_key` | The client key holds no credential for the chain's vendors. `local` models never cause this. |
@@ -1170,6 +1251,7 @@ fix bugs.
 | Prometheus metrics | Names and labels of `ktms_*` metrics, except the experimental ones listed below. |
 | Usage events (`usage.v1`) | Field numbers and meaning, checked by `buf breaking` like `ktms.v1`. |
 | Node agent | A 1.x agent works with any 1.x gateway, in both directions. |
+| Helm chart (`oci://ghcr.io/ai-process/charts/ktms`) | Value names and meaning; new values may appear. The chart version is the release version. |
 
 Not public, and free to change in any release: Redis key layout, log message text, the
 `internal/` Go packages, CLI output of the tools in `cmd/` other than their flags, and benchmark
@@ -1193,8 +1275,6 @@ These work and are supported, but may change in a minor release. The change is t
   (`GUARDRAILS_LATENT_*`), the encoder settings (`LATENT_*`), and embeddings in judge state
   (`EmbeddingPart`, `input_embedding` over HTTP).
 - **`JudgeStream` and `EvaluateRollouts`**, and `POST /v1/decisions/rollouts` over HTTP.
-- **The Helm chart** in `deploy/helm/ktms`, until it is published as a versioned OCI chart. Until
-  then its values may change.
 
 ### Compatibility with ktms-admin and light-tokenmeter
 
@@ -1285,6 +1365,89 @@ Failed calls to Redis, Postgres and the usage collector are counted in `ktms_dep
 | Postgres | Routing config reload | The last good snapshot keeps serving; each poll or rebuild is bounded to 30s and retried every `ROUTING_RELOAD_SECONDS`. | |
 | Postgres | Admin RPCs, batches | `UNAVAILABLE storage_unavailable` (cause logged). A batch whose idempotency check fails is refused rather than submitted, so it is never paid for twice. | |
 | Postgres | Startup | Migrations and the first config load must succeed (the first load within 30s); otherwise the process exits and the orchestrator restarts it. | Nothing to serve without a first snapshot. |
+
+### Metrics and alerts
+
+Prometheus metrics are served on `METRICS_ADDR` (`:9091`) at `/metrics`; the Helm chart can add a
+`ServiceMonitor`. KTMS's own metrics start with `ktms_`; the standard Go runtime and process
+metrics are served next to them.
+
+| Metric | Labels | What it tells you |
+| --- | --- | --- |
+| `ktms_requests_total` | `vendor`, `model`, `effort`, `status` (`success`, `error`, `canceled`) | Upstream calls and their outcome; `canceled` is a caller that went away. |
+| `ktms_request_duration_seconds` | `vendor`, `model`, `effort` | Upstream call duration, histogram; for a stream, the whole stream. |
+| `ktms_time_to_first_token_seconds` | `vendor`, `model` | Time to the first streamed chunk, histogram. |
+| `ktms_tokens_total` | `vendor`, `model`, `type` (`input`, `output`) | Tokens consumed. |
+| `ktms_cache_tokens_total` | `vendor`, `model`, `type` (`read`, `write`) | The part of input read from or written to the prompt cache. |
+| `ktms_active_requests` | `vendor`, `model` | Upstream calls in flight. |
+| `ktms_throttled_total` | `reason` (`rpm`, `key_rpm`, `key_tpm`, `budget_key`, `budget_user`, `spend_key_daily`, `spend_key_monthly`, `spend_user_daily`, `spend_user_monthly`, `spend_team_monthly`, `spend_unavailable`) | Calls refused by a limit; `spend_unavailable` is Redis down with `SPEND_LIMITS_FAIL_MODE=closed`. |
+| `ktms_fallbacks_total` | `from_model`, `to_model`, `reason` | Moves down a fallback chain. |
+| `ktms_circuit_breaker_state` | `vendor`, `model` | `0` closed, `1` open, `2` half-open. |
+| `ktms_circuit_breaker_transitions_total`, `ktms_circuit_breaker_rejections_total` | `vendor`, `model` (+ `from`, `to`) | Breaker flaps and the calls it refused. |
+| `ktms_vendor_cooldowns_total` | `vendor`, `model` | Pauses started from a vendor `Retry-After`. |
+| `ktms_dependency_errors_total` | `dependency` (`redis`, `postgres`, `usage_collector`, `keyring`), `operation` | Failed calls to a dependency; `keyring` is a stored vendor key that no keyring version decrypts. |
+| `ktms_usage_events_dropped_total` | `reason` (`queue_full`, `rejected`, `shutdown`, `closed`) | Usage events that never reached light-tokenmeter. |
+| `ktms_batch_jobs_total`, `ktms_batch_items_total` | `vendor`, `state` | Batch progress. |
+| `ktms_batch_poll_duration_seconds` | `vendor` | Vendor batch polling, histogram. |
+| `ktms_shadow_requests_total`, `ktms_shadow_judge_evaluations_total`, `ktms_shadow_judge_scores` | | Shadow traffic and its judged quality. |
+| `ktms_legacy_headers_requests_total` | `header` | Clients still sending `X-LLM-Proxy-*` headers. |
+
+The `throttled` and `usage_events_dropped` reasons are exported at 0 from startup, so `increase()`
+catches the first event after a restart. Suggested alerts (tune thresholds to your traffic; `job`
+is your scrape job, with the chart's `ServiceMonitor` the Service name, e.g. `prod-ktms`):
+
+```yaml
+groups:
+  - name: ktms
+    rules:
+      - alert: KTMSUpstreamErrorRate
+        expr: sum by (vendor, model) (rate(ktms_requests_total{status="error"}[5m]))
+          / sum by (vendor, model) (rate(ktms_requests_total{status!="canceled"}[5m])) > 0.05
+        for: 10m
+      - alert: KTMSTimeToFirstTokenP99
+        expr: histogram_quantile(0.99, sum by (le, vendor, model) (rate(ktms_time_to_first_token_seconds_bucket[5m]))) > 10
+        for: 15m
+      - alert: KTMSCircuitOpen
+        expr: max by (vendor, model) (ktms_circuit_breaker_state) == 1
+        for: 5m
+      - alert: KTMSDependencyErrors
+        expr: sum by (dependency) (rate(ktms_dependency_errors_total[5m])) > 0
+        for: 5m
+      - alert: KTMSUsageEventsDropped
+        expr: sum by (reason) (increase(ktms_usage_events_dropped_total[15m])) > 0
+      - alert: KTMSSpendLimitReached
+        expr: sum by (reason) (increase(ktms_throttled_total{reason=~"spend_(key|user|team)_.+"}[15m])) > 0
+      - alert: KTMSDown
+        expr: up{job="ktms"} == 0
+        for: 2m
+```
+
+`KTMSDependencyErrors` and `KTMSUsageEventsDropped` matter most: Redis and the collector fail
+open, so the calls keep succeeding and only these metrics show that limits or accounting stopped.
+A long stream is not slow, so latency alerts use the time to the first token. Also probe
+`/readyz`: it turns `degraded`, then 503, during a Postgres outage.
+
+### Sizing
+
+From the [benchmark](#resource-footprint): about 0.65 s of CPU per 1,000 proxied requests, under
+50 MiB of memory at 4,000 RPS, no drift at a steady load. Upstream time does not cost CPU, so size
+by request rate, not by how long vendors take to answer.
+
+- **CPU:** plan 1 vCPU per 1,000 RPS, which leaves headroom for TLS, logging and streaming.
+  Guardrails, the semantic cache and the latent encoder add CPU per call; measure them with
+  `go test -bench` (see [Semantic cache and latent guardrails](#semantic-cache-and-latent-guardrails)).
+- **Memory:** memory follows the bodies in flight, not RPS. The chart's default (256 MiB request,
+  512 MiB limit) covers thousands of concurrent short calls; raise it for large prompts, images
+  or audio (`GRPC_MAX_RECV_MSG_SIZE` is 16 MiB per message).
+- **Replicas:** run at least two behind a load balancer; they share nothing but Postgres and
+  Redis. Each replica keeps its own circuit breakers and vendor pauses.
+- **Postgres:** replicas × `DB_MAX_CONNS` (25 by default) must fit under `max_connections` with
+  room for migrations and the other services. Routing serves from a snapshot reloaded every
+  `ROUTING_RELOAD_SECONDS`, so the hot path costs one indexed key lookup per call; size
+  Postgres for that query rate.
+- **Redis:** a few commands per call when limits, caches or the node pool are on, each bounded by
+  `REDIS_TIMEOUT`. Keep it in the same zone as the gateway; one small instance serves every
+  replica.
 
 ## Development
 
