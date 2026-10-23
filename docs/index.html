@@ -1,22 +1,22 @@
 ---
 title: Documentation
-description: Guides and references for KTMS, light-tokenmeter and ktms-admin.
+description: Guides and references for Keystone (KTMS), light-tokenmeter and ktms-admin.
 ---
 <h1>Documentation</h1>
-<p>Everything you need to run the ai-process stack: the KTMS gateway, the light-tokenmeter usage meter and the ktms-admin console. Each service also ships a full reference in its repository README.</p>
+<p>Everything you need to run the ai-process stack: the Keystone (KTMS) gateway, the light-tokenmeter usage meter and the ktms-admin console. Each service also ships a full reference in its repository README.</p>
 
 <div class="docs-hub-grid">
   <a class="doc-card" href="/docs/architecture/"><h4>Architecture &amp; deployment</h4><p>How the three services fit together, with a Docker Compose file for the whole stack.</p></a>
-  <a class="doc-card" href="/docs/ktms/"><h4>KTMS gateway</h4><p>gRPC and OpenAI-compatible APIs, effort routing, fallbacks, limits, batches, speech and images.</p></a>
+  <a class="doc-card" href="/docs/ktms/"><h4>Keystone (KTMS) gateway</h4><p>gRPC and OpenAI-compatible APIs, effort routing, fallbacks, limits, batches, speech and images.</p></a>
   <a class="doc-card" href="/docs/local-nodes/"><h4>Local GPU node pool</h4><p>Self-registering inference nodes, health states, Smooth WRR balancing and cloud fallback.</p></a>
   <a class="doc-card" href="/docs/quickstart-local-node/"><h4>Quick start: local node</h4><p>Connect Ollama, vLLM, TGI or llama.cpp on your own GPU to KTMS in a few commands.</p></a>
-  <a class="doc-card" href="/docs/light-tokenmeter/"><h4>light-tokenmeter</h4><p>Idempotent usage events, fast <code>COPY</code> batches, daily summaries and greedy vs worthy analysis.</p></a>
-  <a class="doc-card" href="/docs/ktms-admin/"><h4>ktms-admin console</h4><p>Google sign-in with allowlists, models, rules and keys, a prompt playground and a spend dashboard.</p></a>
+  <a class="doc-card" href="/docs/light-tokenmeter/"><h4>light-tokenmeter</h4><p>Idempotent usage events behind bearer tokens, daily summaries, lossless ClickHouse copying, Prometheus metrics and greedy vs worthy analysis.</p></a>
+  <a class="doc-card" href="/docs/ktms-admin/"><h4>ktms-admin console</h4><p>Password, OpenID Connect, GitHub or access-proxy sign-in, models, rules and keys, a prompt playground and a spend dashboard.</p></a>
 </div>
 
 <h2>Full references</h2>
 <ul>
-  <li><a href="https://github.com/ai-process/ktms#readme">KTMS README</a> — configuration reference, error contract, API stability, operations.</li>
-  <li><a href="https://github.com/ai-process/light-tokenmeter#readme">light-tokenmeter README</a> — HTTP and gRPC API reference, configuration, security.</li>
-  <li><a href="https://github.com/ai-process/ktms-admin#readme">ktms-admin README</a> — Google OAuth setup, deployment, security model.</li>
+  <li><a href="https://github.com/ai-process/ktms#readme">Keystone (KTMS) README</a> — configuration reference, error contract, API stability, operations.</li>
+  <li><a href="https://github.com/ai-process/light-tokenmeter#readme">light-tokenmeter README</a> — HTTP and gRPC API reference, authentication, metrics, ClickHouse, API stability.</li>
+  <li><a href="https://github.com/ai-process/ktms-admin#readme">ktms-admin README</a> — sign-in methods, deployment, security model.</li>
 </ul>

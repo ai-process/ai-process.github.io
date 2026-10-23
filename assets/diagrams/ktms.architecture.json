@@ -2,7 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "KTMS Architecture",
+    "title": "Keystone. The Model Switchboard. (KTMS) Architecture",
     "output": "diagrams/ktms.html",
     "quality_profile": "showcase",
     "repository": {
@@ -16,10 +16,21 @@
       "type": "external",
       "label": "Client Services",
       "sublabel": "gRPC / OpenAI SDKs",
-      "pos": [40, 260],
-      "size": [130, 64],
+      "pos": [
+        40,
+        200
+      ],
+      "size": [
+        130,
+        64
+      ],
       "sources": [
-        { "path": "proto/ktms/v1/gateway.proto", "line": 1, "end_line": 40, "label": "gRPC contract" }
+        {
+          "path": "proto/ktms/v1/gateway.proto",
+          "line": 1,
+          "end_line": 40,
+          "label": "gRPC contract"
+        }
       ]
     },
     {
@@ -28,11 +39,27 @@
       "label": "gRPC & HTTP Ingress",
       "sublabel": ":9090 RPC / :8080 /v1",
       "tag": "Bearer ktms_*",
-      "pos": [260, 260],
-      "size": [160, 64],
+      "pos": [
+        260,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "internal/server/grpc.go", "line": 29, "end_line": 41, "label": "gRPC auth & server" },
-        { "path": "internal/server/openai.go", "line": 46, "end_line": 60, "label": "OpenAI HTTP /v1" }
+        {
+          "path": "internal/server/grpc.go",
+          "line": 29,
+          "end_line": 41,
+          "label": "gRPC auth & server"
+        },
+        {
+          "path": "internal/server/openai.go",
+          "line": 46,
+          "end_line": 60,
+          "label": "OpenAI HTTP /v1"
+        }
       ]
     },
     {
@@ -41,10 +68,21 @@
       "label": "Admin Service",
       "sublabel": "Models, Rules, Keys",
       "tag": "admin scope",
-      "pos": [260, 440],
-      "size": [160, 64],
+      "pos": [
+        260,
+        350
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "internal/grpcapi/admin.go", "line": 26, "end_line": 72, "label": "Admin mutations" }
+        {
+          "path": "internal/grpcapi/admin.go",
+          "line": 26,
+          "end_line": 72,
+          "label": "Admin mutations"
+        }
       ]
     },
     {
@@ -52,11 +90,27 @@
       "type": "backend",
       "label": "Router & Switchboard",
       "sublabel": "Rule match & fallback",
-      "pos": [520, 260],
-      "size": [160, 64],
+      "pos": [
+        520,
+        200
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "internal/grpcapi/handler.go", "line": 59, "end_line": 100, "label": "Proxy handler" },
-        { "path": "internal/router/execute.go", "line": 98, "end_line": 120, "label": "Chain execution" }
+        {
+          "path": "internal/grpcapi/handler.go",
+          "line": 59,
+          "end_line": 100,
+          "label": "Proxy handler"
+        },
+        {
+          "path": "internal/router/execute.go",
+          "line": 98,
+          "end_line": 120,
+          "label": "Chain execution"
+        }
       ]
     },
     {
@@ -65,10 +119,21 @@
       "label": "Redis Throttle",
       "sublabel": "RPM & daily budgets",
       "tag": "fail-open",
-      "pos": [390, 80],
-      "size": [160, 64],
+      "pos": [
+        390,
+        50
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "internal/throttle/throttle.go", "line": 38, "end_line": 94, "label": "RPM & token budgets" }
+        {
+          "path": "internal/throttle/throttle.go",
+          "line": 38,
+          "end_line": 94,
+          "label": "RPM & token budgets"
+        }
       ]
     },
     {
@@ -77,11 +142,27 @@
       "label": "PostgreSQL + Keyring",
       "sublabel": "Config, keys, batches",
       "tag": "AES-256-GCM",
-      "pos": [520, 440],
-      "size": [160, 64],
+      "pos": [
+        520,
+        350
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "internal/proxydb/db.go", "line": 14, "end_line": 70, "label": "Postgres store" },
-        { "path": "internal/registry/loader.go", "line": 99, "end_line": 144, "label": "Snapshot & decrypt" }
+        {
+          "path": "internal/proxydb/db.go",
+          "line": 14,
+          "end_line": 70,
+          "label": "Postgres store"
+        },
+        {
+          "path": "internal/registry/loader.go",
+          "line": 99,
+          "end_line": 144,
+          "label": "Snapshot & decrypt"
+        }
       ]
     },
     {
@@ -89,10 +170,21 @@
       "type": "backend",
       "label": "Batch Poller",
       "sublabel": "Async jobs & retention",
-      "pos": [520, 600],
-      "size": [160, 64],
+      "pos": [
+        520,
+        490
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "internal/batch/poller.go", "line": 45, "end_line": 99, "label": "Batch polling loop" }
+        {
+          "path": "internal/batch/poller.go",
+          "line": 45,
+          "end_line": 99,
+          "label": "Batch polling loop"
+        }
       ]
     },
     {
@@ -100,10 +192,21 @@
       "type": "cloud",
       "label": "LLM Vendors",
       "sublabel": "OpenAI / Anthropic / Gemini / DeepSeek / Ollama / TypeSafe",
-      "pos": [810, 260],
-      "size": [300, 64],
+      "pos": [
+        810,
+        200
+      ],
+      "size": [
+        300,
+        64
+      ],
       "sources": [
-        { "path": "internal/registry/vendors.go", "line": 10, "end_line": 79, "label": "Vendor registry" }
+        {
+          "path": "internal/registry/vendors.go",
+          "line": 10,
+          "end_line": 79,
+          "label": "Vendor registry"
+        }
       ]
     },
     {
@@ -111,10 +214,21 @@
       "type": "external",
       "label": "light-tokenmeter",
       "sublabel": "gRPC Usage Sink",
-      "pos": [810, 80],
-      "size": [170, 64],
+      "pos": [
+        810,
+        50
+      ],
+      "size": [
+        170,
+        64
+      ],
       "sources": [
-        { "path": "internal/usagereport/client.go", "line": 21, "end_line": 95, "label": "Usage collector client" }
+        {
+          "path": "internal/usagereport/client.go",
+          "line": 21,
+          "end_line": 95,
+          "label": "Usage collector client"
+        }
       ]
     }
   ],
@@ -122,20 +236,95 @@
     {
       "kind": "security-group",
       "label": "KTMS Runtime & Stores",
-      "wraps": ["ingress", "admin", "router", "redis", "postgres", "poller"]
+      "wraps": [
+        "ingress",
+        "admin",
+        "router",
+        "redis",
+        "postgres",
+        "poller"
+      ]
     }
   ],
   "connections": [
-    { "id": "client-req", "from": "clients", "to": "ingress", "label": "gRPC / HTTP", "variant": "emphasis" },
-    { "id": "ingress-route", "from": "ingress", "to": "router", "label": "Generate / Batch" },
-    { "id": "ingress-admin", "from": "ingress", "to": "admin", "label": "Admin RPC", "variant": "security", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
-    { "id": "admin-db", "from": "admin", "to": "postgres", "label": "Validated tx" },
-    { "id": "router-redis", "from": "router", "to": "redis", "label": "RPM & budget", "fromSide": "top", "toSide": "bottom" },
-    { "id": "router-db", "from": "router", "to": "postgres", "label": "Snapshot & batch", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
-    { "id": "router-vendors", "from": "router", "to": "vendors", "label": "Fallback chain", "variant": "emphasis", "labelDy": 20 },
-    { "id": "poller-db", "from": "poller", "to": "postgres", "label": "Lease & complete", "fromSide": "top", "toSide": "bottom" },
-    { "id": "poller-vendors", "from": "poller", "to": "vendors", "label": "Poll batch", "variant": "dashed", "fromSide": "right", "toSide": "bottom" },
-    { "id": "router-usage", "from": "router", "to": "tokenmeter", "label": "RecordUsageEvent", "variant": "dashed" }
+    {
+      "id": "client-req",
+      "from": "clients",
+      "to": "ingress",
+      "label": "gRPC / HTTP",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ingress-route",
+      "from": "ingress",
+      "to": "router",
+      "label": "Generate / Batch"
+    },
+    {
+      "id": "ingress-admin",
+      "from": "ingress",
+      "to": "admin",
+      "label": "Admin RPC",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "admin-db",
+      "from": "admin",
+      "to": "postgres",
+      "label": "Validated tx"
+    },
+    {
+      "id": "router-redis",
+      "from": "router",
+      "to": "redis",
+      "label": "RPM & budget",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "router-db",
+      "from": "router",
+      "to": "postgres",
+      "label": "Snapshot & batch",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "router-vendors",
+      "from": "router",
+      "to": "vendors",
+      "label": "Fallback chain",
+      "variant": "emphasis",
+      "labelDy": 20
+    },
+    {
+      "id": "poller-db",
+      "from": "poller",
+      "to": "postgres",
+      "label": "Lease & complete",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "poller-vendors",
+      "from": "poller",
+      "to": "vendors",
+      "label": "Poll batch",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "bottom"
+    },
+    {
+      "id": "router-usage",
+      "from": "router",
+      "to": "tokenmeter",
+      "label": "RecordUsageEvent",
+      "variant": "dashed"
+    }
   ],
   "cards": [
     {

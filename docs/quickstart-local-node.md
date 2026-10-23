@@ -11,7 +11,7 @@ This guide provides a step-by-step walkthrough for connecting a local machine (r
 
 ---
 
-## 1. Preparation on `KTMS`
+## 1. Preparation on Keystone. The Model Switchboard. (KTMS)
 
 ### Step 1.1. Mint a Node Key (`NodeKey`)
 Each worker machine needs a dedicated authentication key with prefix `ktms_node_...` (legacy `llm_node_...` recognized):
