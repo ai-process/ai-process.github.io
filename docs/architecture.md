@@ -9,13 +9,13 @@ permalink: /docs/architecture/
 
 The **ai-process** ecosystem consists of two core backend services and an optional web console:
 
-1. **[KTMS](/docs/ktms/)** ([`ai-process/ktms`](https://github.com/ai-process/ktms), formerly `llm-proxy`) — Self-hosted LLM gateway. Holds encrypted vendor API keys, routes requests by `effort` and free-form attributes across model fallback chains, enforces Redis-backed RPM and daily token budgets, and streams usage events.
-2. **[light-tokenmeter](/docs/light-tokenmeter/)** ([`ai-process/light-tokenmeter`](https://github.com/ai-process/light-tokenmeter)) — Lightweight token usage meter. Receives one event per model call over gRPC or HTTP, stores them idempotently in a single append-only Postgres table, and serves daily multi-dimensional summaries to identify greedy vs. worthy token consumers.
-3. **[ktms-admin](/docs/ktms-admin/)** ([`ai-process/ktms-admin`](https://github.com/ai-process/ktms-admin), formerly `llm-proxy-admin`) — Web console for managing `KTMS` (models, rules, API keys, vendor credentials, prompt playground) and visualizing usage and cost from `light-tokenmeter`.
+1. **[Keystone. The Model Switchboard. (KTMS)](/docs/ktms/)** ([`ai-process/ktms`](https://github.com/ai-process/ktms), formerly `llm-proxy`) — Self-hosted LLM gateway. Holds encrypted vendor API keys, routes requests by `effort` and free-form attributes across model fallback chains, enforces Redis-backed RPM and daily token budgets, and streams usage events.
+2. **[light-tokenmeter](/docs/light-tokenmeter/)** ([`ai-process/light-tokenmeter`](https://github.com/ai-process/light-tokenmeter)) — Lightweight token usage meter. Receives one event per model call over gRPC or HTTP (behind bearer tokens with `write` and `read` scopes), stores them idempotently in Postgres, optionally copies them to ClickHouse without loss, and serves daily multi-dimensional summaries to identify greedy vs. worthy token consumers.
+3. **[ktms-admin](/docs/ktms-admin/)** ([`ai-process/ktms-admin`](https://github.com/ai-process/ktms-admin), formerly `llm-proxy-admin`) — Web console for managing Keystone (models, rules, API keys, vendor credentials, prompt playground) and visualizing usage and cost from `light-tokenmeter`, with password, OpenID Connect, GitHub or access-proxy sign-in.
 
 ## How They Fit Together
 
-### `KTMS` Architecture
+### Keystone. The Model Switchboard. (KTMS) Architecture
 - Interactive HTML: [`diagrams/ktms.html`](/assets/diagrams/ktms.html) | Spec: [`diagrams/ktms.architecture.json`](/assets/diagrams/ktms.architecture.json)
 
 ![KTMS Architecture (Light)](/assets/diagrams/ktms-light.png)
@@ -25,10 +25,10 @@ The **ai-process** ecosystem consists of two core backend services and an option
 
 ![light-tokenmeter Architecture (Light)](/assets/diagrams/light-tokenmeter-light.png)
 
-### `llm-proxy-admin` Architecture
-- Interactive HTML: [`diagrams/llm-proxy-admin.html`](/assets/diagrams/llm-proxy-admin.html) | Spec: [`diagrams/llm-proxy-admin.architecture.json`](/assets/diagrams/llm-proxy-admin.architecture.json)
+### `ktms-admin` Architecture
+- Interactive HTML: [`diagrams/ktms-admin.html`](/assets/diagrams/ktms-admin.html) | Spec: [`diagrams/ktms-admin.architecture.json`](/assets/diagrams/ktms-admin.architecture.json)
 
-![llm-proxy-admin Architecture (Light)](/assets/diagrams/llm-proxy-admin-light.png)
+![ktms-admin Architecture (Light)](/assets/diagrams/ktms-admin-light.png)
 
 ```
 Client Applications
@@ -37,11 +37,12 @@ Client Applications
                                        │     │   │
                      Postgres (ktms) ◀─┘     ├──▶ Redis (RPM & daily token budgets)
                                              │
-                                             └──▶ light-tokenmeter (:9090 gRPC / :8080 HTTP)
+                                             └──▶ light-tokenmeter (:9090 gRPC, write token)
                                                           │   ▲
-                                    Postgres (tokenmeter) ◀   │ (:8080 HTTP)
+                       Postgres (tokenmeter) + ClickHouse ◀   │ (:8080 HTTP, read token)
                                                               │
-Browser (Google OAuth) ──▶ ktms-admin (:8081) ────────────────┘ (also manages KTMS :9090 gRPC)
+Browser ──▶ ktms-admin (:8081) ───────────────────────────────┘
+            sign-in: password, OIDC, GitHub or access proxy; the console also manages KTMS :9090 gRPC
 ```
 
 ## Running the Whole Stack (Docker Compose)
@@ -80,6 +81,7 @@ services:
       BOOTSTRAP_ADMIN_KEY: ${BOOTSTRAP_ADMIN_KEY:-}
       REDIS_ADDR: redis:6379
       USAGE_COLLECTOR_HOST: light-tokenmeter:9090
+      USAGE_COLLECTOR_TOKEN: ${USAGE_COLLECTOR_TOKEN:-}
     ports:
       - "9090:9090"
       - "8080:8080"
@@ -94,7 +96,7 @@ services:
     volumes:
       - chdata:/var/lib/clickhouse
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8123/ping || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8123/ping || exit 1"]
       interval: 3s
       retries: 20
 
@@ -112,6 +114,7 @@ services:
       CLICKHOUSE_DATABASE: tokenmeter
       CLICKHOUSE_USER: tokenmeter
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-tokenmeter}
+      TOKENMETER_TOKENS: ${TOKENMETER_TOKENS:-}
 
   console:
     image: coyl/ktms-admin:latest
@@ -119,14 +122,30 @@ services:
     depends_on: [ktms, light-tokenmeter]
     environment:
       PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL in .env}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in .env}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?set GOOGLE_CLIENT_SECRET in .env}
+      # At least one sign-in method; see ktms-admin.
+      ADMIN_USERS: ${ADMIN_USERS:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_NAME: ${OIDC_NAME:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+      AUTH_HEADER_EMAIL: ${AUTH_HEADER_EMAIL:-}
+      CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:-}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD:-}
+      # Deprecated names, passed on so the console can warn about them.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # This stack needs an admin to finish setup.
       ALLOWED_EMAILS: ${ALLOWED_EMAILS:?set ALLOWED_EMAILS in .env}
       VIEWER_EMAILS: ${VIEWER_EMAILS:-}
+      TEAM_MEMBERSHIPS: ${TEAM_MEMBERSHIPS:-}
       SESSION_SECRET: ${SESSION_SECRET:-}
       KTMS_ADDR: ktms:9090
       KTMS_ADMIN_KEY: ${KTMS_ADMIN_KEY:-}
       TOKENMETER_URL: http://light-tokenmeter:8080
+      TOKENMETER_TOKEN: ${TOKENMETER_TOKEN:-}
     ports:
       - "8081:8080"
 
@@ -145,13 +164,19 @@ CREATE DATABASE tokenmeter;
 ### First-Run Bootstrap Steps
 
 1. Configure required `.env` variables before launching the stack:
-   - `PUBLIC_URL=http://localhost:8081` (Since the console port is mapped to `8081:8080`, Google OAuth Authorized Redirect URI must be `http://localhost:8081/auth/google/callback`).
-   - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (from Google Cloud Console Credentials).
-   - `ALLOWED_EMAILS=alice@example.com,bob@example.com` (allowed admin emails).
+   - `PUBLIC_URL=http://localhost:8081` (the console port is mapped to `8081:8080`).
+   - `ADMIN_USERS` with a password hash from `docker run --rm -it coyl/ktms-admin:latest hash-password you@example.com`, in single quotes (`ADMIN_USERS='you@example.com:$argon2id$…'`: the hash contains `$`), and the same address in `ALLOWED_EMAILS` (for Google, other OpenID Connect providers, GitHub or an access proxy see [ktms-admin](/docs/ktms-admin/)).
    - Generate `KTMS_ENCRYPTION_KEYS` (fallback `LLMPROXY_ENCRYPTION_KEYS` recognized) and a temporary `BOOTSTRAP_ADMIN_KEY`:
      ```bash
      export KTMS_ENCRYPTION_KEYS="1:$(head -c 32 /dev/urandom | base64)"
      export BOOTSTRAP_ADMIN_KEY="$(head -c 24 /dev/urandom | base64 | tr -d '/+=')"
+     ```
+   - Optionally turn on light-tokenmeter authentication: one `write` token for Keystone, one `read` token for the console; light-tokenmeter gets only their hashes:
+     ```bash
+     W=$(openssl rand -hex 32); R=$(openssl rand -hex 32)
+     h() { printf %s "$1" | openssl dgst -sha256 -r | cut -d' ' -f1; }
+     echo "USAGE_COLLECTOR_TOKEN=$W"; echo "TOKENMETER_TOKEN=$R"
+     echo "TOKENMETER_TOKENS=ktms:write:$(h $W),console:read:$(h $R)"
      ```
    *(Note: upon the very first `docker compose up -d`, `console` will restart until `KTMS_ADMIN_KEY` is minted in step 2 and added in step 3).*
 2. Start the stack and mint an admin API key for the web console (or your automation):
@@ -172,7 +197,7 @@ The `ai-process` services are compiled Go binaries without an interpreter or vir
 - Environment: GCP `europe-west3`; system under test on `c3-standard-4` (4 vCPU, 16 GB RAM, x86_64, Docker), `k6` load generator on a separate `c3-standard-4`.
 - Versions: `KTMS` (commit `b68742e` with the connection-reuse fix ai-process/ktms#72, `slim` target), LiteLLM Proxy (`ghcr.io/berriai/litellm:v1.106.0`, one Uvicorn worker per core (4), master key only, no database, `LITELLM_LOG=ERROR`).
 - Workload: mock upstream; added latency at 200 RPS with a 0 ms upstream, 50 concurrent SSE streams for TTFT, 5-minute soak at 200 RPS, throughput steps up to 4,000 RPS with a 10 ms upstream. Memory is cgroup v2 `anon` (RSS) of the gateway container only (Postgres/Redis not counted); peak is cgroup `memory.peak` over the whole run. Readiness is `docker start` to the first successful completion proxied through the gateway. Values are rounded means of the two runs.
-- † `light-tokenmeter` was not part of this run, and its memory, readiness and throughput have not been measured. Its image size is from the Docker Hub manifest of `coyl/light-tokenmeter:0.1.1` (`latest`), which is Alpine-based; the distroless Dockerfile on `main` is not released yet.
+- † `light-tokenmeter` was not part of this run, and its memory, readiness and throughput have not been measured. Its image size is from the Docker Hub manifest of `coyl/light-tokenmeter:0.1.1`, which was Alpine-based; from 0.1.2 its runtime is distroless.
 
 | Metric | `KTMS` (Go) | `light-tokenmeter` (Go) † | LiteLLM Proxy (Python) | Comparison (`KTMS` vs LiteLLM) |
 |---|---|---|---|---|
@@ -186,7 +211,7 @@ The `ai-process` services are compiled Go binaries without an interpreter or vir
 | **Max Sustained Throughput (<1% errors, 10 ms upstream)** | ≥4,000 RPS (top step tested; p99 26–43 ms at 4,000 RPS) | not measured | 250 RPS (plateau ~570 RPS with ~51% failures at 4,000 RPS offered) | ≥16x higher |
 | **CPU per 1k Requests** | ~0.63 s | not measured | ~9.7 s | ~15x less CPU |
 | **Concurrency Model** | Goroutines across all cores in a single process | Goroutines across all cores in a single process | Multiple OS processes (one per Uvicorn worker) + asyncio | Single process uses all cores; no per-worker memory duplication |
-| **Container Base Image** | Alpine (non-root UID 10001) | Alpine in the published 0.1.1 (non-root UID 10001); distroless static (UID 65532) in the unreleased `main` Dockerfile | Python runtime (Chainguard/Debian), pip, Debian system packages | Fewer system components in runtime image |
+| **Container Base Image** | Alpine (non-root UID 10001) | Alpine up to 0.1.1 (non-root UID 10001); distroless static (UID 65532) from 0.1.2 | Python runtime (Chainguard/Debian), pip, Debian system packages | Fewer system components in runtime image |
 
 The same stand also measured nine other gateways. Against compiled and Nginx/Envoy-based proxies `KTMS` is in the same league (sub-millisecond overhead, ≥4,000 RPS) and has the lowest memory together with agentgateway, but it is not the fastest: agentgateway, Apache APISIX and Kong add 0.25–0.35 ms at p50 and use 0.26–0.40 s of CPU per 1,000 requests, against ~0.64 ms and ~0.63 s for `KTMS`. See the [benchmark report](https://github.com/ai-process/ktms#resource-footprint) and the [competitor overview](https://github.com/ai-process/ktms#resource-footprint).
 

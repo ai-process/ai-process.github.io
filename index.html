@@ -1,14 +1,14 @@
 ---
 layout: default
 title: ai-process — open-source infrastructure for production LLMs
-description: KTMS is a self-hosted LLM gateway in Go. With light-tokenmeter and ktms-admin it keeps your vendor keys, routes by effort, falls back, caps spend and shows who burns the tokens. Apache-2.0-licensed.
+description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-tokenmeter and ktms-admin it keeps your vendor keys, routes by effort, falls back, caps spend and shows who burns the tokens. Apache-2.0-licensed.
 ---
 <section class="hero">
   <div class="container hero-grid">
     <div>
       <span class="pill"><span class="dot"></span>Open source · Apache 2.0 · Written in Go</span>
       <h1>One switchboard for <span class="grad-text">every LLM</span> you run</h1>
-      <p class="lead">KTMS is a self-hosted LLM gateway: it keeps your vendor keys, routes each request by effort, falls back when a provider fails and caps spend. light-tokenmeter shows who burns the tokens. ktms-admin puts it all in your browser.</p>
+      <p class="lead">Keystone. The Model Switchboard. (KTMS) is a self-hosted LLM gateway: it keeps your vendor keys, routes each request by effort, falls back when a provider fails and caps spend. light-tokenmeter shows who burns the tokens. ktms-admin puts it all in your browser.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="#quickstart">Get started in 1 minute</a>
         <a class="btn btn-ghost" href="/docs/">Read the docs</a>
@@ -48,13 +48,13 @@ description: KTMS is a self-hosted LLM gateway in Go. With light-tokenmeter and 
     <div class="products">
       <article class="product featured reveal">
         <div class="product-icon"><svg viewBox="0 0 24 24"><path d="M4 6c5 0 6 6 10 6M4 18c5 0 6-6 10-6M4 12h10M14 12h6M17 9l3 3-3 3"/></svg></div>
-        <h3>KTMS</h3>
+        <h3>Keystone. The Model Switchboard. (KTMS)</h3>
         <div class="tag">LLM gateway · gRPC &amp; HTTP</div>
-        <p>Your services talk to one endpoint. KTMS holds the vendor keys, picks the model, retries elsewhere when a vendor is down and records every call.</p>
+        <p>Your services talk to one endpoint. Keystone holds the vendor keys, picks the model, retries elsewhere when a vendor is down and records every call.</p>
         <ul>
           <li>Vendor keys encrypted in Postgres (AES-256-GCM): OpenAI, Anthropic, Gemini, DeepSeek</li>
           <li>Routing rules by effort and attributes, changed live</li>
-          <li>RPM and daily token budgets per key and per user</li>
+          <li>RPM, daily token budgets and USD spend caps per key, user and team</li>
           <li>Batches at 50% off, speech, images, typed <code>Judge</code></li>
           <li>Pool of your own GPU nodes with cloud fallback</li>
         </ul>
@@ -71,10 +71,10 @@ description: KTMS is a self-hosted LLM gateway in Go. With light-tokenmeter and 
         <p>Your apps, or KTMS, push one event per model call. Ask who is spending your tokens, and whether they are worth it.</p>
         <ul>
           <li>Append-only, idempotent events: sending twice is harmless</li>
-          <li>Up to 500 events per batch in a single <code>COPY</code></li>
+          <li>Bearer tokens with write and read scopes, Prometheus metrics</li>
           <li>Daily summaries with any filters and groupings</li>
           <li>HTTP/JSON for dashboards, gRPC for services</li>
-          <li>Optional ClickHouse for large volumes, with TTL</li>
+          <li>Optional ClickHouse for large volumes, with no lost events</li>
         </ul>
         <div class="product-links">
           <a href="/docs/light-tokenmeter/">Docs →</a>
@@ -88,16 +88,16 @@ description: KTMS is a self-hosted LLM gateway in Go. With light-tokenmeter and 
         <div class="tag">Web console · one static binary</div>
         <p>Manage models, routing rules and keys, try a prompt in the playground and read the spend dashboard. No more <code>grpcurl</code>.</p>
         <ul>
-          <li>Google sign-in with wildcard allowlists, read-only users</li>
+          <li>Password, OpenID Connect, GitHub or access-proxy sign-in, read-only users</li>
           <li>Greedy / worthy verdict per project, user and model</li>
-          <li>Works with KTMS, light-tokenmeter or both</li>
+          <li>Works with Keystone, light-tokenmeter or both</li>
           <li>UI embedded in the Go binary, no front-end build</li>
           <li>Light and dark themes, usable from a phone</li>
         </ul>
         <div class="product-links">
           <a href="/docs/ktms-admin/">Docs →</a>
           <a href="https://github.com/ai-process/ktms-admin">GitHub</a>
-          <a href="https://hub.docker.com/r/coyl/llm-proxy-admin">Docker Hub</a>
+          <a href="https://hub.docker.com/r/coyl/ktms-admin">Docker Hub</a>
         </div>
       </article>
     </div>
@@ -107,7 +107,7 @@ description: KTMS is a self-hosted LLM gateway in Go. With light-tokenmeter and 
 <section class="section" id="features" style="padding-top:24px">
   <div class="container">
     <div class="section-head center reveal">
-      <span class="eyebrow">Why KTMS</span>
+      <span class="eyebrow">Why Keystone</span>
       <h2>Stop hardcoding model names.<br><span class="grad-text">Let the gateway decide.</span></h2>
     </div>
 
@@ -147,7 +147,7 @@ description: KTMS is a self-hosted LLM gateway in Go. With light-tokenmeter and 
       <div class="feature-text reveal">
         <div class="feature-num">3</div>
         <h3>Budgets that actually stop the spend</h3>
-        <p>Per-model requests-per-minute and daily token budgets for every API key and every end user, enforced in Redis before the vendor ever sees the request.</p>
+        <p>Per-model requests-per-minute and daily token budgets for every API key and every end user, plus hard USD spend caps per key, user and team, enforced in Redis before the vendor ever sees the request.</p>
         <p>Non-interactive work goes through the vendors' Batch APIs at a 50% discount, with background polling and a synchronous fallback.</p>
       </div>
       <div class="card reveal d1">
@@ -272,10 +272,10 @@ response = client.chat.completions.create(
     </div>
     <div class="docs-grid">
       <a class="doc-card reveal" href="/docs/architecture/"><h4>Architecture &amp; deployment</h4><p>How the services fit together, with one Compose file for the whole stack.</p></a>
-      <a class="doc-card reveal d1" href="/docs/ktms/"><h4>KTMS gateway</h4><p>APIs, effort routing, fallbacks, limits, batches, speech and images.</p></a>
+      <a class="doc-card reveal d1" href="/docs/ktms/"><h4>Keystone (KTMS) gateway</h4><p>APIs, effort routing, fallbacks, limits, batches, speech and images.</p></a>
       <a class="doc-card reveal d2" href="/docs/local-nodes/"><h4>Local GPU node pool</h4><p>Self-registering nodes, health states, Smooth WRR and cloud fallback.</p></a>
       <a class="doc-card reveal" href="/docs/quickstart-local-node/"><h4>Quick start: local node</h4><p>Connect Ollama, vLLM, TGI or llama.cpp to KTMS step by step.</p></a>
-      <a class="doc-card reveal d1" href="/docs/light-tokenmeter/"><h4>light-tokenmeter</h4><p>Events, batches, summaries and the greedy vs worthy analysis.</p></a>
+      <a class="doc-card reveal d1" href="/docs/light-tokenmeter/"><h4>light-tokenmeter</h4><p>Events, auth, summaries, ClickHouse, metrics and the greedy vs worthy analysis.</p></a>
       <a class="doc-card reveal d2" href="/docs/ktms-admin/"><h4>ktms-admin console</h4><p>Sign-in, allowlists, gateway management and the spend dashboard.</p></a>
     </div>
   </div>

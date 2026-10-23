@@ -1,5 +1,5 @@
 title: ai-process
-description: Open-source, Apache-2.0-licensed infrastructure for running LLMs in production — KTMS gateway, light-tokenmeter and ktms-admin.
+description: Open-source, Apache-2.0-licensed infrastructure for running LLMs in production — Keystone (KTMS) gateway, light-tokenmeter and ktms-admin.
 url: "https://ai-process.dev"
 baseurl: ""
 

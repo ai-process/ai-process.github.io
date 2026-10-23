@@ -16,17 +16,18 @@ SRC = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ROOT.parent / "docs").r
 # source file -> (slug, nav title, order)
 PAGES = {
     "architecture.md": ("architecture", "Architecture & deployment", 1),
-    "ktms.md": ("ktms", "KTMS gateway", 2),
+    "ktms.md": ("ktms", "Keystone (KTMS) gateway", 2),
     "local-nodes.md": ("local-nodes", "Local GPU node pool", 3),
     "quickstart-local-node.md": ("quickstart-local-node", "Quick start: local node", 4),
     "light-tokenmeter.md": ("light-tokenmeter", "light-tokenmeter", 5),
-    "llm-proxy-admin.md": ("ktms-admin", "ktms-admin console", 6),
+    "ktms-admin.md": ("ktms-admin", "ktms-admin console", 6),
 }
 BENCH = "https://github.com/ai-process/ktms#resource-footprint"
 EXTERNAL = {
     "ktms-benchmark.md": BENCH,
     "competitors/index.md": BENCH,
     "llm-proxy.md": "/docs/ktms/",
+    "llm-proxy-admin.md": "/docs/ktms-admin/",
 }
 
 
@@ -46,8 +47,6 @@ def convert(text: str) -> str:
     # Private tracker links mean nothing to public readers: keep the text, drop the link.
     text = re.sub(r"\[([^\]]+)\]\(https://github\.com/ai-process/docs/[^)]*\)", r"\1", text)
     text = re.sub(r" \| \*\*Epic:\*\* `ai-process/docs#\d+`", "", text)
-    text = text.replace("ai-process/llm-proxy-admin", "ai-process/ktms-admin")
-    text = re.sub(r"^# llm-proxy-admin$", "# ktms-admin", text, flags=re.M)
     # kramdown has no inline TeX on GitHub Pages.
     text = text.replace("$\\ge$", "≥").replace("$\\le$", "≤")
     text = re.sub(r"\$\\sum W_\{\\text\{eff\}\}\$", "ΣW_eff", text)
@@ -62,6 +61,10 @@ def main() -> None:
         (out / f"{slug}.md").write_text(front + "{% raw %}\n" + body.rstrip() + "\n{% endraw %}\n")
     diagrams = ROOT / "assets" / "diagrams"
     diagrams.mkdir(parents=True, exist_ok=True)
+    # Diagrams renamed or removed in the docs repo must not linger here.
+    for f in diagrams.iterdir():
+        if f.suffix in {".png", ".html", ".json"} and not (SRC / "diagrams" / f.name).exists():
+            f.unlink()
     for f in (SRC / "diagrams").iterdir():
         if f.suffix in {".png", ".html", ".json"}:
             shutil.copy2(f, diagrams / f.name)

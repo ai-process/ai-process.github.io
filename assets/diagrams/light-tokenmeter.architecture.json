@@ -7,78 +7,256 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/ai-process/light-tokenmeter",
-      "revision": "26143e217c132c176fd6eabf29b475b4f91e7c61"
+      "revision": "1442c5479eff79522ad284760634e16bd946184b"
     }
   },
   "components": [
     {
       "id": "producers",
       "type": "external",
-      "label": "llm-proxy & Apps",
+      "label": "KTMS & apps",
       "sublabel": "Event producers",
-      "pos": [40, 80],
-      "size": [150, 64],
+      "tag": "write token",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        180,
+        64
+      ],
       "sources": [
-        { "path": "proto/usage/v1/usage.proto", "line": 1, "end_line": 45, "label": "UsageService proto" },
-        { "path": "internal/server/http.go", "line": 42, "end_line": 43, "label": "HTTP event ingestion" }
+        {
+          "path": "proto/usage/v1/usage.proto",
+          "line": 1,
+          "end_line": 40,
+          "label": "UsageService proto"
+        }
       ]
     },
     {
       "id": "consumers",
       "type": "frontend",
-      "label": "llm-proxy-admin",
-      "sublabel": "Dashboards & curl",
-      "pos": [40, 280],
-      "size": [150, 64],
+      "label": "ktms-admin, dashboards",
+      "sublabel": "Usage reports",
+      "tag": "read token",
+      "pos": [
+        40,
+        280
+      ],
+      "size": [
+        180,
+        64
+      ],
       "sources": [
-        { "path": "internal/server/http.go", "line": 39, "end_line": 44, "label": "HTTP summary & health API" }
+        {
+          "path": "internal/server/http.go",
+          "line": 30,
+          "end_line": 80,
+          "label": "HTTP routes"
+        }
+      ]
+    },
+    {
+      "id": "prometheus",
+      "type": "external",
+      "label": "Prometheus",
+      "sublabel": "Scrapes /metrics",
+      "pos": [
+        40,
+        440
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/metrics/metrics.go",
+          "line": 1,
+          "end_line": 157,
+          "label": "Metrics registry & server"
+        }
       ]
     },
     {
       "id": "grpc_srv",
-      "type": "backend",
-      "label": "gRPC Server",
-      "sublabel": "UsageService :9090",
-      "pos": [400, 80],
-      "size": [170, 64],
+      "type": "security",
+      "label": "gRPC Server :9090",
+      "sublabel": "Bearer scopes per RPC",
+      "pos": [
+        310,
+        80
+      ],
+      "size": [
+        170,
+        64
+      ],
       "sources": [
-        { "path": "internal/server/grpc.go", "line": 31, "end_line": 84, "label": "gRPC handlers" },
-        { "path": "internal/server/grpc.go", "line": 170, "end_line": 199, "label": "GetUsageByMeta RPC" }
+        {
+          "path": "internal/server/grpc.go",
+          "line": 30,
+          "end_line": 80,
+          "label": "Server & scope map"
+        },
+        {
+          "path": "internal/auth/auth.go",
+          "line": 1,
+          "end_line": 250,
+          "label": "Token hashes & scopes"
+        }
       ]
     },
     {
       "id": "http_srv",
-      "type": "backend",
-      "label": "HTTP Server",
-      "sublabel": "REST & Probes :8080",
-      "pos": [400, 280],
-      "size": [170, 64],
+      "type": "security",
+      "label": "HTTP Server :8080",
+      "sublabel": "Bearer write / read",
+      "pos": [
+        310,
+        280
+      ],
+      "size": [
+        170,
+        64
+      ],
       "sources": [
-        { "path": "internal/server/http.go", "line": 26, "end_line": 91, "label": "HTTP routes & health" }
+        {
+          "path": "internal/server/http.go",
+          "line": 30,
+          "end_line": 120,
+          "label": "Routes, auth & limits"
+        }
+      ]
+    },
+    {
+      "id": "metrics",
+      "type": "backend",
+      "label": "/metrics :9091",
+      "sublabel": "Events, requests, outbox",
+      "pos": [
+        310,
+        440
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/metrics/metrics.go",
+          "line": 1,
+          "end_line": 157,
+          "label": "Metrics registry & server"
+        }
       ]
     },
     {
       "id": "service",
       "type": "backend",
       "label": "UsageService",
-      "sublabel": "Domain validation",
-      "pos": [690, 180],
-      "size": [170, 64],
+      "sublabel": "Validation & reads",
+      "pos": [
+        580,
+        180
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "internal/service/service.go", "line": 18, "end_line": 93, "label": "UsageService logic" },
-        { "path": "internal/domain/event.go", "line": 1, "end_line": 90, "label": "Event validation" }
+        {
+          "path": "internal/service/service.go",
+          "line": 1,
+          "end_line": 178,
+          "label": "Record, summary, fallback"
+        },
+        {
+          "path": "internal/domain/event.go",
+          "line": 90,
+          "end_line": 180,
+          "label": "Event validation"
+        }
       ]
     },
     {
       "id": "repo",
       "type": "backend",
       "label": "Repository",
-      "sublabel": "COPY & SQL builder",
-      "pos": [980, 180],
-      "size": [170, 64],
+      "sublabel": "COPY + outbox row",
+      "pos": [
+        840,
+        180
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "internal/repository/repository.go", "line": 27, "end_line": 161, "label": "InsertOne & InsertBatch" },
-        { "path": "internal/repository/repository.go", "line": 164, "end_line": 373, "label": "Summary & meta queries" }
+        {
+          "path": "internal/repository/repository.go",
+          "line": 1,
+          "end_line": 200,
+          "label": "Inserts with outbox CTE"
+        },
+        {
+          "path": "internal/repository/outbox.go",
+          "line": 1,
+          "end_line": 304,
+          "label": "Leases, ack, backfill"
+        }
+      ]
+    },
+    {
+      "id": "replicator",
+      "type": "backend",
+      "label": "Replicator",
+      "sublabel": "Leased batches",
+      "tag": "dedup token",
+      "pos": [
+        840,
+        330
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/storage/clickhouse/replicator.go",
+          "line": 1,
+          "end_line": 281,
+          "label": "Copy loop & retries"
+        }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "usage_events + outbox",
+      "tag": "system of record",
+      "pos": [
+        1100,
+        180
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/database/migrations/005_clickhouse_outbox.sql",
+          "line": 1,
+          "end_line": 27,
+          "label": "clickhouse_outbox"
+        },
+        {
+          "path": "internal/database/migrations/001_create_usage_events.sql",
+          "line": 1,
+          "end_line": 40,
+          "label": "usage_events"
+        }
       ]
     },
     {
@@ -86,26 +264,22 @@
       "type": "database",
       "label": "ClickHouse",
       "sublabel": "usage_events MergeTree",
-      "tag": "TTL 90 days",
-      "pos": [690, 360],
-      "size": [170, 64],
+      "tag": "optional, TTL 90d",
+      "pos": [
+        580,
+        540
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "internal/storage/clickhouse/client.go", "line": 28, "end_line": 85, "label": "ClickHouse connection & schema" },
-        { "path": "internal/storage/clickhouse/batch_writer.go", "line": 20, "end_line": 95, "label": "BatchWriter deduplication & flush" }
-      ]
-    },
-    {
-      "id": "postgres",
-      "type": "database",
-      "label": "PostgreSQL",
-      "sublabel": "usage_events table",
-      "tag": "append-only",
-      "pos": [980, 360],
-      "size": [170, 64],
-      "sources": [
-        { "path": "internal/database/migrations/001_create_usage_events.sql", "line": 1, "end_line": 40, "label": "usage_events schema" },
-        { "path": "internal/database/migrations/002_meta_job_index.sql", "line": 5, "end_line": 7, "label": "meta.job_id index" },
-        { "path": "internal/database/migrations/003_event_time_index.sql", "line": 1, "end_line": 8, "label": "event time indexes" }
+        {
+          "path": "internal/storage/clickhouse/client.go",
+          "line": 1,
+          "end_line": 120,
+          "label": "Connection & schema"
+        }
       ]
     }
   ],
@@ -113,36 +287,104 @@
     {
       "kind": "region",
       "label": "light-tokenmeter Service",
-      "wraps": ["grpc_srv", "http_srv", "service", "repo"]
+      "wraps": [
+        "grpc_srv",
+        "http_srv",
+        "metrics",
+        "service",
+        "repo",
+        "replicator"
+      ]
     }
   ],
   "connections": [
-    { "id": "prod-grpc", "from": "producers", "to": "grpc_srv", "label": "RecordUsageEvent(s)", "variant": "emphasis", "labelDy": -14 },
-    { "id": "prod-meta", "from": "producers", "to": "grpc_srv", "label": "GetUsageByMeta", "labelDy": 14 },
-    { "id": "prod-http", "from": "producers", "to": "http_srv", "label": "POST /v1/usage/events", "fromSide": "bottom", "toSide": "top" },
-    { "id": "cons-http", "from": "consumers", "to": "http_srv", "label": "GET /v1/usage/summary", "variant": "emphasis", "labelDy": -14 },
-    { "id": "cons-ready", "from": "consumers", "to": "http_srv", "label": "GET /readyz", "labelDy": 14 },
-    { "id": "grpc-svc", "from": "grpc_srv", "to": "service", "label": "Record / Query" },
-    { "id": "http-svc", "from": "http_srv", "to": "service", "label": "Record / Summary" },
-    { "id": "svc-repo", "from": "service", "to": "repo", "label": "Domain calls" },
-    { "id": "svc-ch", "from": "service", "to": "clickhouse", "label": "Batch & Analytics", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
-    { "id": "repo-pg", "from": "repo", "to": "postgres", "label": "COPY & GROUP BY", "fromSide": "bottom", "toSide": "top", "labelDy": 24 }
+    {
+      "id": "prod-grpc",
+      "from": "producers",
+      "to": "grpc_srv",
+      "label": "Record events",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cons-http",
+      "from": "consumers",
+      "to": "http_srv",
+      "label": "GET summary",
+      "variant": "emphasis"
+    },
+    {
+      "id": "prom-metrics",
+      "from": "prometheus",
+      "to": "metrics",
+      "label": "scrape"
+    },
+    {
+      "id": "grpc-svc",
+      "from": "grpc_srv",
+      "to": "service",
+      "label": "Record / Query"
+    },
+    {
+      "id": "http-svc",
+      "from": "http_srv",
+      "to": "service",
+      "label": "Record / Summary"
+    },
+    {
+      "id": "svc-repo",
+      "from": "service",
+      "to": "repo",
+      "label": "Insert / Query"
+    },
+    {
+      "id": "repo-pg",
+      "from": "repo",
+      "to": "postgres",
+      "label": "one statement",
+      "variant": "emphasis"
+    },
+    {
+      "id": "pg-repl",
+      "from": "postgres",
+      "to": "replicator",
+      "label": "claim & ack",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "id": "repl-ch",
+      "from": "replicator",
+      "to": "clickhouse",
+      "label": "INSERT + token",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "id": "svc-ch",
+      "from": "service",
+      "to": "clickhouse",
+      "label": "reads, PG fallback",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    }
   ],
   "cards": [
     {
       "dot": "emerald",
-      "title": "Idempotent Ingestion",
+      "title": "Ingestion & Auth",
       "items": [
-        "Every event carries a UUID; ON CONFLICT (event_id) DO NOTHING prevents double counting",
-        "Batches up to 500 events stream into a temp table via pgx COPY before atomic insert"
+        "Bearer tokens configured as SHA-256 hashes: write for producers, read for reports, several at once for rotation",
+        "Every event carries a UUID; duplicates are ignored, batches of up to 500 go in with one COPY"
       ]
     },
     {
       "dot": "cyan",
-      "title": "Usage Analytics & Meta Queries",
+      "title": "ClickHouse Without Loss",
       "items": [
-        "Daily summaries bucketed by event time with 10k safety cap and partial index on meta.job_id",
-        "Optional ClickHouse backend provides async batching with in-memory deduplication and 90-day TTL"
+        "Each new event lands in clickhouse_outbox in the same statement; the replicator copies leased batches under a dedup token",
+        "Outages and crashes only delay copying; reads fall back to Postgres, and /metrics shows the outbox lag"
       ]
     }
   ]

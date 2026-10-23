@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ktms-admin Architecture",
+    "output": "diagrams/ktms-admin.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/ai-process/ktms-admin",
+      "revision": "6861383cf882772e16e170871d6166c974f4d534"
+    }
+  },
+  "components": [
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "Admin Browser",
+      "sublabel": "SPA & SSE Streaming",
+      "pos": [
+        40,
+        260
+      ],
+      "size": [
+        140,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/web/web.go",
+          "line": 1,
+          "end_line": 19,
+          "label": "Static files embedded FS"
+        },
+        {
+          "path": "internal/web/static/js/main.js",
+          "line": 1,
+          "end_line": 60,
+          "label": "Console shell & routing"
+        }
+      ]
+    },
+    {
+      "id": "signin",
+      "type": "security",
+      "label": "Sign-in Methods",
+      "sublabel": "Password · OIDC · GitHub · Proxy",
+      "pos": [
+        40,
+        80
+      ],
+      "size": [
+        200,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/auth/method.go",
+          "line": 1,
+          "end_line": 80,
+          "label": "Pluggable sign-in methods"
+        },
+        {
+          "path": "internal/auth/oidc/oidc.go",
+          "line": 1,
+          "end_line": 60,
+          "label": "OpenID Connect (Google & others)"
+        },
+        {
+          "path": "internal/auth/header/header.go",
+          "line": 1,
+          "end_line": 60,
+          "label": "Access-proxy header"
+        }
+      ],
+      "tag": "Google, Keycloak, CF Access…"
+    },
+    {
+      "id": "ingress",
+      "type": "security",
+      "label": "Ingress & Guard",
+      "sublabel": "Auth, Session & CSRF",
+      "tag": "RBAC + Allowlist",
+      "pos": [
+        280,
+        260
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/auth/auth.go",
+          "line": 1,
+          "end_line": 120,
+          "label": "Session core"
+        },
+        {
+          "path": "internal/auth/allowlist.go",
+          "line": 1,
+          "end_line": 91,
+          "label": "Admin/viewer/team allowlists"
+        },
+        {
+          "path": "internal/api/api.go",
+          "line": 150,
+          "end_line": 200,
+          "label": "Role & CSRF guard"
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Admin Gateway",
+      "sublabel": "CRUD, Playground, Judge",
+      "pos": [
+        530,
+        260
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/api/api.go",
+          "line": 60,
+          "end_line": 130,
+          "label": "API routes"
+        },
+        {
+          "path": "internal/api/proxy.go",
+          "line": 1,
+          "end_line": 80,
+          "label": "KTMS config & keys"
+        }
+      ]
+    },
+    {
+      "id": "analytics",
+      "type": "backend",
+      "label": "Analytics Engine",
+      "sublabel": "Cost & Efficiency Scoring",
+      "pos": [
+        530,
+        440
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/usage/usage.go",
+          "line": 40,
+          "end_line": 160,
+          "label": "light-tokenmeter client & token"
+        },
+        {
+          "path": "internal/usage/usage.go",
+          "line": 200,
+          "end_line": 333,
+          "label": "Greedy vs worthy verdict"
+        }
+      ]
+    },
+    {
+      "id": "ktms",
+      "type": "external",
+      "label": "Keystone (KTMS)",
+      "sublabel": "Admin & Data gRPC (:9090)",
+      "tag": "Bearer KTMS_ADMIN_KEY",
+      "pos": [
+        800,
+        260
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/api/api.go",
+          "line": 52,
+          "end_line": 74,
+          "label": "gRPC client & interceptors"
+        }
+      ]
+    },
+    {
+      "id": "tokenmeter",
+      "type": "external",
+      "label": "light-tokenmeter",
+      "sublabel": "HTTP Usage API (:8080)",
+      "tag": "Bearer TOKENMETER_TOKEN (read)",
+      "pos": [
+        800,
+        440
+      ],
+      "size": [
+        210,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/usage/usage.go",
+          "line": 38,
+          "end_line": 62,
+          "label": "Readiness check & HTTP client"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "ktms-admin Runtime (:8080)",
+      "wraps": [
+        "ingress",
+        "api",
+        "analytics"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "browser-login",
+      "from": "browser",
+      "to": "signin",
+      "label": "Sign in",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "signin-session",
+      "from": "signin",
+      "to": "ingress",
+      "label": "Verified e-mail",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "top",
+      "labelDy": 20
+    },
+    {
+      "id": "browser-req",
+      "from": "browser",
+      "to": "ingress",
+      "label": "HTTPS / UI & API",
+      "variant": "emphasis",
+      "labelDy": -16
+    },
+    {
+      "id": "ingress-api",
+      "from": "ingress",
+      "to": "api",
+      "label": "Authorized /api/*",
+      "labelDy": -16
+    },
+    {
+      "id": "ingress-analytics",
+      "from": "ingress",
+      "to": "analytics",
+      "label": "/api/usage",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "labelDy": 20
+    },
+    {
+      "id": "api-proxy",
+      "from": "api",
+      "to": "ktms",
+      "label": "Admin & Data gRPC",
+      "variant": "emphasis",
+      "labelDy": -16
+    },
+    {
+      "id": "analytics-tokenmeter",
+      "from": "analytics",
+      "to": "tokenmeter",
+      "label": "Summary & /readyz",
+      "labelDy": -16
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Authentication & Guard",
+      "items": [
+        "Password (argon2id), Google or any OpenID Connect provider, GitHub, a trusted access proxy or Cloudflare Access",
+        "Allowlists decide the role on every request: admin, read-only viewer, or a team workspace",
+        "Signed session cookie, CSRF header, same-origin checks and a strict CSP"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Dual-Backend Console",
+      "items": [
+        "Keystone (KTMS) gRPC: models, rules, keys, limits, tenants, nodes, playground and Judge",
+        "light-tokenmeter HTTP with a read token: daily usage, estimated cost and readiness",
+        "Greedy / worthy verdicts per project, user, model, action or vendor"
+      ]
+    }
+  ]
+}
