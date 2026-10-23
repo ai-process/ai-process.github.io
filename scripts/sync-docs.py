@@ -6,6 +6,7 @@ Only the pages listed in PAGES are published; internal reports (benchmark, compe
 marketing) stay in the private repo, and links to them point at public READMEs instead.
 """
 import pathlib
+import posixpath
 import re
 import shutil
 import sys
@@ -13,7 +14,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ROOT.parent / "docs").resolve()
 
-# source file -> (slug, nav title, order)
+# source file (relative to en/) -> (slug, nav title, order); prompts/ pages form their own nav group
 PAGES = {
     "architecture.md": ("architecture", "Architecture & deployment", 1),
     "ktms.md": ("ktms", "Keystone (KTMS) gateway", 2),
@@ -21,6 +22,14 @@ PAGES = {
     "quickstart-local-node.md": ("quickstart-local-node", "Quick start: local node", 4),
     "light-tokenmeter.md": ("light-tokenmeter", "light-tokenmeter", 5),
     "ktms-admin.md": ("ktms-admin", "ktms-admin console", 6),
+    "prompts/index.md": ("prompts", "Overview", 10),
+    "prompts/integrate-service.md": ("prompts/integrate-service", "Integrate a service", 11),
+    "prompts/configure-routing.md": ("prompts/configure-routing", "Configure routing", 12),
+    "prompts/deploy-stack.md": ("prompts/deploy-stack", "Deploy the stack", 13),
+    "prompts/local-node.md": ("prompts/local-node", "Add a local GPU node", 14),
+    "prompts/migrate.md": ("prompts/migrate", "Migrate from LiteLLM or SDKs", 15),
+    "prompts/usage-reports.md": ("prompts/usage-reports", "Usage and spend reports", 16),
+    "prompts/production-review.md": ("prompts/production-review", "Production review", 17),
 }
 BENCH = "https://github.com/ai-process/ktms#resource-footprint"
 EXTERNAL = {
@@ -31,8 +40,11 @@ EXTERNAL = {
 }
 
 
-def rewrite_link(target: str) -> str:
+def rewrite_link(target: str, page: str) -> str:
     path, _, anchor = target.partition("#")
+    if path and "://" not in path and not path.startswith("/"):
+        # Links are relative to the page's own folder in en/.
+        path = posixpath.normpath(posixpath.join(posixpath.dirname(page), path))
     if path.startswith("../diagrams/"):
         return "/assets/diagrams/" + path.removeprefix("../diagrams/")
     if path in EXTERNAL:
@@ -42,8 +54,8 @@ def rewrite_link(target: str) -> str:
     return target
 
 
-def convert(text: str) -> str:
-    text = re.sub(r"\]\(([^)\s]+)\)", lambda m: "](" + rewrite_link(m.group(1)) + ")", text)
+def convert(text: str, page: str) -> str:
+    text = re.sub(r"\]\(([^)\s]+)\)", lambda m: "](" + rewrite_link(m.group(1), page) + ")", text)
     # Private tracker links mean nothing to public readers: keep the text, drop the link.
     text = re.sub(r"\[([^\]]+)\]\(https://github\.com/ai-process/docs/[^)]*\)", r"\1", text)
     text = re.sub(r" \| \*\*Epic:\*\* `ai-process/docs#\d+`", "", text)
@@ -56,9 +68,12 @@ def convert(text: str) -> str:
 def main() -> None:
     out = ROOT / "docs"
     for name, (slug, title, order) in PAGES.items():
-        body = convert((SRC / "en" / name).read_text())
-        front = f"---\ntitle: \"{title}\"\nnav_order: {order}\npermalink: /docs/{slug}/\n---\n\n"
-        (out / f"{slug}.md").write_text(front + "{% raw %}\n" + body.rstrip() + "\n{% endraw %}\n")
+        body = convert((SRC / "en" / name).read_text(), name)
+        group = "nav_group: prompts\n" if name.startswith("prompts/") else ""
+        front = f"---\ntitle: \"{title}\"\nnav_order: {order}\n{group}permalink: /docs/{slug}/\n---\n\n"
+        dest = out / f"{slug}.md"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(front + "{% raw %}\n" + body.rstrip() + "\n{% endraw %}\n")
     diagrams = ROOT / "assets" / "diagrams"
     diagrams.mkdir(parents=True, exist_ok=True)
     # Diagrams renamed or removed in the docs repo must not linger here.
