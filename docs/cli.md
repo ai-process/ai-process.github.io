@@ -14,9 +14,8 @@ light-tokenmeter. Both keep keys out of the command line and print a new key onl
 come with an [MCP server](/docs/mcp/) for AI assistants.
 
 > [!NOTE]
-> The CLIs ship with Keystone 1.2 and light-tokenmeter 1.1. Until those releases, build them from
-> `main` (see [Installation](#installation)). Their commands, flags and output are Experimental
-> until the next minor release.
+> The CLIs ship from Keystone 1.2 and light-tokenmeter 1.1 on. Their commands, flags and output are
+> Experimental until the next minor release.
 
 ## Installation
 
