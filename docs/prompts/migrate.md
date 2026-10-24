@@ -28,10 +28,10 @@ the services.
 ```text
 Plan and prepare a migration to Keystone (KTMS) 1.0 from <LiteLLM Proxy | direct vendor SDK calls>.
 Read first, and prefer them to memory:
-- https://raw.githubusercontent.com/ai-process/ktms/v1.0.0/README.md
+- https://raw.githubusercontent.com/ai-process/ktms/v1.2.0/README.md
   (sections "How it works", "Setting it up: keys, models, rules", "OpenAI-compatible HTTP API",
   "Concepts", "Error contract")
-- https://raw.githubusercontent.com/ai-process/ktms/v1.0.0/proto/ktms/v1/admin.proto
+- https://raw.githubusercontent.com/ai-process/ktms/v1.2.0/proto/ktms/v1/admin.proto
 
 Facts that differ from LiteLLM:
 - Clients do not pick deployments by alias. They send an effort ("auto", "auto:low|medium|high")

@@ -15,7 +15,7 @@ route, plans a change or answers a spend question itself, instead of writing `gr
 Both servers are subcommands of the [command-line tools](/docs/cli/) and use their contexts and keys.
 
 > [!NOTE]
-> The MCP servers ship with Keystone 1.2 and light-tokenmeter 1.1; their tools are Experimental
+> The MCP servers ship from Keystone 1.2 and light-tokenmeter 1.1 on; their tools are Experimental
 > until the next minor release.
 
 ## Connecting

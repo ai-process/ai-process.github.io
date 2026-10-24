@@ -84,7 +84,7 @@ yet.
 Release images are published for `linux/amd64` and `linux/arm64`:
 
 ```bash
-docker pull coyl/light-tokenmeter:latest     # or pin a release, e.g. coyl/light-tokenmeter:1.0.0
+docker pull coyl/light-tokenmeter:latest     # or pin a release, e.g. coyl/light-tokenmeter:1.1.0
 ```
 
 It needs only a Postgres database:
