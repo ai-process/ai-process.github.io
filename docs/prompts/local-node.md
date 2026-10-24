@@ -20,6 +20,8 @@ side (one installer command).
 - The machine: macOS on Apple Silicon, or Linux with systemd user services (and an NVIDIA driver
   for GPU speed), enough memory for the model, and outbound internet. Nothing needs to reach the
   machine from outside: the installer sets up a tunnel unless you give it `--endpoint`.
+- With Keystone 1.2 or later, `ktms node-keys mint` and a ktms config file replace the `grpcurl`
+  calls, and the `/ktms:node` skill does the whole task. See [Command-line tools](/docs/cli/).
 
 ## Prompt
 

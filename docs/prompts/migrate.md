@@ -19,6 +19,9 @@ the services.
 - The current configuration: LiteLLM's `config.yaml` (and the list of virtual keys, teams and
   budgets from its database or UI), or the services' code.
 - A Keystone instance to configure (see [Deploy the stack](/docs/prompts/deploy-stack/)).
+- With Keystone 1.2 or later, ask for a ktms config file instead of a script and apply it with `ktms
+  config plan` and `ktms config apply`; the `/ktms:migrate` skill does the whole task. See
+  [Command-line tools](/docs/cli/#configuration-as-a-file).
 
 ## Prompt
 

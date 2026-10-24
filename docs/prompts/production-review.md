@@ -19,6 +19,9 @@ changes.
 - The deployment files (Compose, Helm values, manifests, Terraform) in the repository.
 - Optionally read-only access to the live system: an admin key for `GetConfig` and `ListAPIKeys`,
   the Prometheus that scrapes `:9091`.
+- With Keystone 1.2 or later, connect the read-only `ktms mcp` and `tokenmeter mcp` servers so the
+  assistant reads the live state itself; the `/ktms:production-review` skill runs the review. See
+  [MCP servers](/docs/mcp/).
 
 ## Prompt
 

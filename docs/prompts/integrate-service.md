@@ -17,6 +17,9 @@ place. Use it in the repository of the service.
 - A KTMS client key with the `generate` scope (`ktms_…`), from your administrator or the
   [routing prompt](/docs/prompts/configure-routing/). Put it in the environment, not in the chat.
 - The gateway address: HTTP (default port 8080) for OpenAI-compatible SDKs, or gRPC (port 9090).
+- With Keystone 1.2 or later, `ktms route explain KEY --effort low` shows where each call would go
+  before you send it, and the `/ktms:integrate` skill does the whole task. See
+  [Skills](/docs/skills/).
 
 ## Prompt
 

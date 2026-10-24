@@ -20,6 +20,9 @@ in your infrastructure repository or an empty folder.
   not enforced.
 - How the console's users sign in: password, Google, another OpenID Connect provider, GitHub, or
   an access proxy (oauth2-proxy, Authelia, Cloudflare Access…).
+- With light-tokenmeter 1.1 or later, `tokenmeter token new --name ktms --scope write` makes a token
+  and its `TOKENMETER_TOKENS` entry without `openssl`; the `/ktms:deploy` skill does the whole task.
+  See [Skills](/docs/skills/).
 
 ## Prompt
 

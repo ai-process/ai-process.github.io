@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/ai-process/ktms",
-      "revision": "fcb03af1ad102dcebf53dae7377a0999de9607e1"
+      "revision": "cff1b7b02f48ef60e0f94124f1116081a3de7bae"
     }
   },
   "components": [
@@ -30,6 +30,35 @@
           "line": 1,
           "end_line": 40,
           "label": "gRPC contract"
+        }
+      ]
+    },
+    {
+      "id": "ops",
+      "type": "frontend",
+      "label": "ktms CLI & MCP",
+      "sublabel": "plan · apply · explain",
+      "tag": "admin:read",
+      "pos": [
+        40,
+        350
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "sources": [
+        {
+          "path": "cmd/ktms/main.go",
+          "line": 1,
+          "end_line": 40,
+          "label": "ktms CLI"
+        },
+        {
+          "path": "cmd/ktms/mcp.go",
+          "line": 1,
+          "end_line": 60,
+          "label": "ktms mcp"
         }
       ]
     },
@@ -67,7 +96,7 @@
       "type": "backend",
       "label": "Admin Service",
       "sublabel": "Models, Rules, Keys",
-      "tag": "admin scope",
+      "tag": "admin / admin:read",
       "pos": [
         260,
         350
@@ -324,6 +353,15 @@
       "to": "tokenmeter",
       "label": "RecordUsageEvent",
       "variant": "dashed"
+    },
+    {
+      "id": "ops-ingress",
+      "from": "ops",
+      "to": "ingress",
+      "label": "Admin RPC",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left"
     }
   ],
   "cards": [
@@ -343,6 +381,15 @@
         "Redis enforces per-key RPM and per-key / per-user daily token budgets",
         "Postgres stores models, rules, batch state, and AES-256-GCM vendor keys",
         "Replicas reload snapshots periodically or immediately on local admin writes"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Operators & Assistants",
+      "items": [
+        "ktms CLI keeps the configuration as a file: plan, then apply",
+        "ktms mcp offers read tools by default; changes go config_plan → config_apply",
+        "ExplainRoute dry-runs routing on the gateway's own code; admin:read keys only read"
       ]
     }
   ]

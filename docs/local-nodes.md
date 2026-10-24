@@ -26,6 +26,7 @@ permalink: /docs/local-nodes/
 - [Production-Grade Resilience Mechanisms](#production-grade-resilience-mechanisms)
 - [Usage Collector Integration (`light-tokenmeter`)](#usage-collector-integration-light-tokenmeter)
 - [Node Agent (ktms-node)](#node-agent-ktms-node)
+- [Load Schedule (Capacity Levels)](#load-schedule-capacity-levels)
 
 ---
 
@@ -105,9 +106,10 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" -d '{
 | --- | --- | --- | --- |
 | 1 | `OFFLINE` | Heartbeat missed (`now - last_hb > NODE_HEARTBEAT_TTL_SECONDS`, default `15`). Evaluated **before** `DRAINING` so a node dropped during drain does not linger indefinitely. Purged after `NODE_RETENTION_TTL_DAYS` (default `1`). | No (waits for fresh heartbeat) |
 | 2 | `DRAINING` | Node reported `draining = true` in heartbeat or admin invoked `DrainNode`. Existing in-flight requests finish cleanly; no new requests assigned. | No |
-| 3 | `CIRCUIT_BROKEN` | Heartbeats active, but inference failed ≥ `5` consecutive times (set in `cmd/server/main.go`). Isolated for a `30s` cooldown, probing recovery via single `HALF_OPEN` trial (Redis CAS). | Only 1 trial request after cooldown |
-| 4 | `SUSPECT` | Heartbeats on time, but the GPU reports a temperature ≥ `88` °C or utilisation ≥ `98`% (`internal/nodes/manager.go`). | Fallback only (if zero `HEALTHY` nodes available) |
-| 5 | `HEALTHY` | Timely heartbeats, closed circuit breaker, available concurrency slots. | Yes |
+| 3 | `PAUSED` | The heartbeat reports `capacity_percent = 0`: the node's load schedule is at 0%. Not an outage: do not alert on it. | No |
+| 4 | `CIRCUIT_BROKEN` | Heartbeats active, but inference failed ≥ `5` consecutive times (set in `cmd/server/main.go`). Isolated for a `30s` cooldown, probing recovery via single `HALF_OPEN` trial (Redis CAS). | Only 1 trial request after cooldown |
+| 5 | `SUSPECT` | Heartbeats on time, but the GPU reports a temperature ≥ `88` °C or utilisation ≥ `98`% (`internal/nodes/manager.go`). | Fallback only (if zero `HEALTHY` nodes available) |
+| 6 | `HEALTHY` | Timely heartbeats, closed circuit breaker, available concurrency slots. | Yes |
 
 ---
 
@@ -132,11 +134,13 @@ Sent every `N` seconds (default `NODE_HEARTBEAT_INTERVAL_SECONDS = 5`):
 * `draining` (`bool`): Graceful drain intent.
 * `active_requests`, `queue_depth`, `vram_free_mb`, `gpu_utilization_pct`.
 * `models`: Live model catalogue and `is_warm` load state.
+* `capacity_percent` (`optional uint32`, 0–100): Current load-schedule level. Unset means 100, so agents that predate it keep full capacity; above 100 is rejected with `InvalidArgument`.
 
 In `HeartbeatResponse`, the gateway returns:
 * `re_register_required` (`bool`): `true` if node state was purged from Redis (prompts `RegisterNode`).
 * `drain_requested` (`bool`): `true` if an operator triggered `DrainNode`.
-* `active_proxy_requests` (`int32`): Active in-flight lease count in Redis for this node (used by agent to drain before `SIGTERM` exit).
+* `active_proxy_requests` (`int32`): Requests still running on this node per Redis, not counting post-request cooldown holds (used by the agent to drain before `SIGTERM` exit and to unload the model during a pause).
+* `capacity_applied` (`bool`): `true` from gateways that apply `capacity_percent`; an agent that sees `false` below 100% warns that the gateway is older.
 
 ---
 
@@ -172,7 +176,7 @@ The selector picks one node via Smooth WRR (`current_weight[i] += W_eff[i]`, pic
 ## Production-Grade Resilience Mechanisms
 
 1. **Redis ZSET In-Flight Leases:**
-   Active requests obtain an atomic lease in Redis ZSET `node:inflight:{nodeID}` (`member = reqUUID`, `score = deadline_ms`) via a Lua script (`ZREMRANGEBYSCORE` + verify `ZCARD < max_concurrency` + `ZADD`). Leases are refreshed during long streaming responses and expire cleanly if a gateway replica crashes. If Redis is down, node routing fails closed to prevent local GPU OOM.
+   Active requests obtain an atomic lease in Redis ZSET `node:inflight:{nodeID}` (`member = reqUUID`, `score = deadline_ms`) via a Lua script (`ZREMRANGEBYSCORE` + verify `ZCARD < slots` + `ZADD`, where `slots` follows the [load schedule](#load-schedule-capacity-levels)). A cooldown hold after a request lives in the same set as `cd:{reqUUID}` and expires like a lease. Leases are refreshed during long streaming responses and expire cleanly if a gateway replica crashes. If Redis is down, node routing fails closed to prevent local GPU OOM.
 2. **Circuit Breaker:**
    After `5` consecutive failures (set in `cmd/server/main.go`), the node transitions to `CIRCUIT_BROKEN` for a `30s` cooldown and then gets a single `HALF_OPEN` probe.
 3. **Zero-Drop Graceful Drain:**
@@ -205,4 +209,33 @@ NODE_KEY="ktms_node_..." ktms-node \
 * Supports `ollama` (`/api/tags`, `/api/ps`, effective `num_ctx` detection), `vllm` (`/v1/models`, `/metrics`), `tgi` (`/info`, `/metrics`), `llamacpp` (`/props`, `/slots`), and `openai`.
 * Queries GPUs via `nvidia-smi` CLI (no CGO/NVML) for `vram_total_mb`, `vram_free_mb`, and `gpu_utilization_pct`; `base_weight` comes from `--base-weight`.
 * Handles `SIGTERM`/`SIGINT` via graceful drain and `active_proxy_requests == 0` convergence.
+
+---
+
+## Load Schedule (Capacity Levels)
+
+A node on someone's own machine can follow a load schedule in the machine's local time. The schedule lives on the node (`--schedule-file`, the installer's `--schedule FILE` copies it to `~/.ktms-node/schedule`); the gateway only receives the current level in `capacity_percent`.
+
+```
+# [days] HH:MM-HH:MM level
+23:00-07:00 100
+07:00-10:00 50
+mon-fri 10:00-23:00 0
+# sat,sun 00:00-24:00 100
+```
+
+* Days: `mon`..`sun`, ranges (`mon-fri`, `fri-mon`) and lists (`sat,sun`); without days a rule applies daily. A window past midnight belongs to the day it starts on; `24:00` ends a day.
+* Time no rule covers runs at 100%, and so does a node without the file. Overlapping rules are an error: the agent refuses to start, `ktms-node schedule --file F` and `doctor` name the line.
+* The agent reads the file every 30 s and on a change; a broken edit keeps the schedule in force. The level follows the wall clock, so DST switches stay on time.
+
+**What a level means.** The level is the share of time the node spends on gateway requests, not a share of slots:
+
+* `slots = ceil(max_concurrent × level / 100)` requests may run at once;
+* where that is more than the level (always with `max_concurrent = 1`), the slot stays held after each request for `cooldown = T × (slots / (max_concurrent × level / 100) − 1)`, capped at 15 minutes, where `T` is the request's duration. One slot at 50%: a 20 s request, then 20 s idle;
+* `0%`: the node is `PAUSED` and gets no requests; models in the fallback chain take the traffic;
+* `100%`: unchanged.
+
+**Pause and resume.** On a level change the agent sends a heartbeat at once. At 0% its gateway answers `503` after a 5 s grace (for gateways that ignore levels and for requests already on their way), and once `active_proxy_requests` is 0 the agent unloads the served Ollama models (`keep_alive: 0`), freeing the machine's memory. The tunnel and heartbeats keep running. `--warmup` (default `5m`) before the next window with a level above 0 the agent loads the models again, so the first request does not wait. Engines other than Ollama only stop being routed to.
+
+**Admin API.** `ListNodes` reports `capacity_percent`, `effective_slots` and the `PAUSED` state; `active_requests` counts running requests, not cooldown holds.
 {% endraw %}
