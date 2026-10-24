@@ -22,6 +22,9 @@ limits. Each page ends with a list to check the result against.
 3. Check the result against the page's list before you merge or apply anything.
 
 - The prompts pin release 1.0.0 (`v1.0.0` in the URLs). For a later release, replace the tag.
+- From Keystone 1.2 and light-tokenmeter 1.1, the [command-line tools](/docs/cli/), the
+  [MCP servers](/docs/mcp/) and the [skills](/docs/skills/) do these tasks directly; each prompt says
+  how. The prompts remain for assistants without MCP or skills.
 - Never paste real API keys, vendor keys or passwords into the chat. The prompts ask for
   environment variables and secret references, and so should you.
 - An assistant that cannot open URLs needs the files instead: download the sources listed below

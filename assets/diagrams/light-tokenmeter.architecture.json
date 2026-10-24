@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/ai-process/light-tokenmeter",
-      "revision": "1442c5479eff79522ad284760634e16bd946184b"
+      "revision": "e25c6bb56d4e81d4d6e3b88f6261d3459f38a537"
     }
   },
   "components": [
@@ -31,6 +31,34 @@
           "line": 1,
           "end_line": 40,
           "label": "UsageService proto"
+        }
+      ]
+    },
+    {
+      "id": "ops",
+      "type": "frontend",
+      "label": "tokenmeter CLI & MCP",
+      "sublabel": "Reports, read token",
+      "pos": [
+        40,
+        180
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "cmd/tokenmeter/usage_cmd.go",
+          "line": 1,
+          "end_line": 40,
+          "label": "tokenmeter usage"
+        },
+        {
+          "path": "cmd/tokenmeter/mcp.go",
+          "line": 1,
+          "end_line": 40,
+          "label": "tokenmeter mcp"
         }
       ]
     },
@@ -306,6 +334,14 @@
       "variant": "emphasis"
     },
     {
+      "id": "ops-grpc",
+      "from": "ops",
+      "to": "grpc_srv",
+      "label": "Summary / ByMeta",
+      "fromSide": "right",
+      "toSide": "bottom"
+    },
+    {
       "id": "cons-http",
       "from": "consumers",
       "to": "http_srv",
@@ -385,6 +421,15 @@
       "items": [
         "Each new event lands in clickhouse_outbox in the same statement; the replicator copies leased batches under a dedup token",
         "Outages and crashes only delay copying; reads fall back to Postgres, and /metrics shows the outbox lag"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Reports for People & Assistants",
+      "items": [
+        "tokenmeter usage summary, top, by-meta and export, totals in exact USD",
+        "Capped windows are fetched in parts, so totals are complete",
+        "tokenmeter mcp only reads and refuses a token that can write"
       ]
     }
   ]

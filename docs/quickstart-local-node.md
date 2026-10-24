@@ -104,6 +104,8 @@ export NODE_KEY="ktms_node_0123456789abcdef..."
 * `--node-key-file`: Alternative to `NODE_KEY` environment variable (path to file containing secret).
 * `--base-weight`: Base node hardware weight (default 100.0).
 * `--max-concurrent`: Max concurrent request limit (default 16).
+* `--schedule-file`: Load schedule by local time, re-read on change; a missing file means 100%. See [Load Schedule](/docs/local-nodes/#load-schedule-capacity-levels).
+* `--warmup`: How long before a paused window ends the model is loaded again (default 5m).
 
 ---
 

@@ -21,6 +21,9 @@ terminal history.
 - [`grpcurl`](https://github.com/fullstorydev/grpcurl), or a language the assistant should write
   the script in.
 - Vendor API keys in environment variables or a secret manager, never in the chat.
+- With Keystone 1.2 or later, skip the script: the `ktms` CLI keeps this configuration as a file
+  (`ktms config plan`, `ktms config apply`), and the `/ktms:configure` skill does the whole task.
+  See [Command-line tools](/docs/cli/#configuration-as-a-file).
 
 ## Prompt
 

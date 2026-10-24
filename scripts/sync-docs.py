@@ -14,7 +14,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ROOT.parent / "docs").resolve()
 
-# source file (relative to en/) -> (slug, nav title, order); prompts/ pages form their own nav group
+# source file (relative to en/) -> (slug, nav title, order); prompts/ and the tools pages form
+# their own nav groups
 PAGES = {
     "architecture.md": ("architecture", "Architecture & deployment", 1),
     "ktms.md": ("ktms", "Keystone (KTMS) gateway", 2),
@@ -22,6 +23,9 @@ PAGES = {
     "quickstart-local-node.md": ("quickstart-local-node", "Quick start: local node", 4),
     "light-tokenmeter.md": ("light-tokenmeter", "light-tokenmeter", 5),
     "ktms-admin.md": ("ktms-admin", "ktms-admin console", 6),
+    "cli.md": ("cli", "Command-line tools", 7),
+    "mcp.md": ("mcp", "MCP servers", 8),
+    "skills.md": ("skills", "Skills & Claude Code plugin", 9),
     "prompts/index.md": ("prompts", "Overview", 10),
     "prompts/integrate-service.md": ("prompts/integrate-service", "Integrate a service", 11),
     "prompts/configure-routing.md": ("prompts/configure-routing", "Configure routing", 12),
@@ -31,6 +35,7 @@ PAGES = {
     "prompts/usage-reports.md": ("prompts/usage-reports", "Usage and spend reports", 16),
     "prompts/production-review.md": ("prompts/production-review", "Production review", 17),
 }
+TOOLS = {"cli.md", "mcp.md", "skills.md"}
 BENCH = "https://github.com/ai-process/ktms#resource-footprint"
 EXTERNAL = {
     "ktms-benchmark.md": BENCH,
@@ -70,6 +75,8 @@ def main() -> None:
     for name, (slug, title, order) in PAGES.items():
         body = convert((SRC / "en" / name).read_text(), name)
         group = "nav_group: prompts\n" if name.startswith("prompts/") else ""
+        if name in TOOLS:
+            group = "nav_group: tools\n"
         front = f"---\ntitle: \"{title}\"\nnav_order: {order}\n{group}permalink: /docs/{slug}/\n---\n\n"
         dest = out / f"{slug}.md"
         dest.parent.mkdir(parents=True, exist_ok=True)

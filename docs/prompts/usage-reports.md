@@ -19,6 +19,9 @@ report or job should live (a script, a cron job, a dashboard backend).
 - light-tokenmeter's HTTP address (default port 8080) and, with authentication on, a token with
   the `read` scope in `TOKENMETER_TOKEN`.
 - For current caps and what is left of them: a Keystone admin key in `KTMS_ADMIN_KEY`.
+- With light-tokenmeter 1.1 or later, `tokenmeter usage …` and the `tokenmeter mcp` tools answer
+  these questions directly, and the `/ktms:usage-reports` skill builds the report. See [MCP
+  servers](/docs/mcp/#light-tokenmeter-tools).
 
 ## Prompt
 
