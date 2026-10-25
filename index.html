@@ -58,6 +58,38 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
   </div>
 </section>
 
+<section class="section" id="keys" style="padding-top:24px;padding-bottom:64px">
+  <div class="container">
+    <div class="section-head center reveal">
+      <span class="eyebrow">One key per service</span>
+      <h2>Stop scattering vendor keys.<br><span class="grad-text">Hand out one per service.</span></h2>
+      <p>Every service gets a single <code>ktms_…</code> key. Vendor credentials stay encrypted inside Keystone, and the admin decides which vendors, models and limits each key gets, without touching the service.</p>
+    </div>
+    <div class="keys">
+      <div class="keys-card before reveal">
+        <div class="card-title"><span>Without Keystone</span><span class="tag-bad">keys everywhere</span></div>
+        <div class="env"><b>billing/.env</b>OPENAI_API_KEY=sk-proj-…<br>ANTHROPIC_API_KEY=sk-ant-…</div>
+        <div class="env"><b>search/.env</b>OPENAI_API_KEY=sk-proj-…<br>GEMINI_API_KEY=AIza…</div>
+        <div class="env"><b>support-bot/.env</b>ANTHROPIC_API_KEY=sk-ant-…<br>DEEPSEEK_API_KEY=sk-…</div>
+        <p class="keys-note">Which service holds which key? Who can call the expensive model? A rotation means a redeploy everywhere.</p>
+      </div>
+      <div class="keys-card after reveal d1">
+        <div class="card-title"><span>With Keystone</span><span class="tag-good">one key each</span></div>
+        <div class="env"><b>billing/.env</b>KTMS_API_KEY=ktms_…</div>
+        <div class="env"><b>search/.env</b>KTMS_API_KEY=ktms_…</div>
+        <div class="env"><b>support-bot/.env</b>KTMS_API_KEY=ktms_…</div>
+        <div class="policy">
+          <div class="policy-row head"><span>key</span><span>vendors</span><span>models · limits</span></div>
+          <div class="policy-row"><span>billing</span><span>openai</span><span>gpt-mini · 120 rpm</span></div>
+          <div class="policy-row"><span>search</span><span>google, local</span><span>gemini-flash · 200k tpm</span></div>
+          <div class="policy-row"><span>support-bot</span><span>anthropic</span><span>claude · any</span></div>
+        </div>
+        <p class="keys-note">Set in ktms-admin or over the Admin API. Rotate a vendor key once, revoke a service key in one call.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="stats">
   <div class="container">
     <div class="stats-grid reveal">
