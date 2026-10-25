@@ -26,6 +26,38 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
   </div>
 </section>
 
+<section class="section" id="architecture" style="padding-top:24px;padding-bottom:64px">
+  <div class="container">
+    <div class="section-head center reveal">
+      <span class="eyebrow">How it fits together</span>
+      <h2>One endpoint in. <span class="grad-text">Every model out.</span></h2>
+      <p>Your services keep a single address and a scoped <code>ktms_…</code> key. Everything behind it can change without a deploy.</p>
+    </div>
+    <div class="flow reveal">
+      <div class="flow-col">
+        <div class="flow-box"><b>Your services</b><small>gRPC clients, typed Protobuf</small></div>
+        <div class="flow-box"><b>OpenAI SDKs &amp; agents</b><small>base_url → :8080/v1</small></div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-box flow-core">
+        <b class="grad-text">KTMS</b>
+        <div><small>Postgres for config &amp; encrypted keys · Redis for limits</small></div>
+        <div class="chips"><span>vendor keys</span><span>effort rules</span><span>fallbacks</span><span>RPM &amp; budgets</span><span>batches</span><span>node pool</span></div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-col">
+        <div class="flow-box"><b>Cloud vendors</b><small>OpenAI · Anthropic · Gemini · DeepSeek</small></div>
+        <div class="flow-box"><b>Your GPUs</b><small>Ollama · vLLM · llama.cpp</small></div>
+      </div>
+    </div>
+    <div class="flow-down reveal">↓ one usage event per call</div>
+    <div class="flow-bottom reveal">
+      <div class="flow-box"><b>light-tokenmeter</b><small>who spends, on what, and is it worth it</small></div>
+      <div class="flow-box"><b>ktms-admin</b><small>models, rules, keys, playground, spend</small></div>
+    </div>
+  </div>
+</section>
+
 <section class="stats">
   <div class="container">
     <div class="stats-grid reveal">
@@ -173,38 +205,6 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
         <div class="spend-row"><div class="who">retry-loop<small>agent-sandbox</small></div><div class="tok">19.7M tok</div><span class="verdict greedy">greedy</span></div>
         <div class="spend-row"><div class="who">rerank-all<small>search</small></div><div class="tok">11.3M tok</div><span class="verdict greedy">greedy</span></div>
       </div>
-    </div>
-  </div>
-</section>
-
-<section class="section" id="architecture" style="padding-top:24px">
-  <div class="container">
-    <div class="section-head center reveal">
-      <span class="eyebrow">How it fits together</span>
-      <h2>One endpoint in. <span class="grad-text">Every model out.</span></h2>
-      <p>Your services keep a single address and a scoped <code>ktms_…</code> key. Everything behind it can change without a deploy.</p>
-    </div>
-    <div class="flow reveal">
-      <div class="flow-col">
-        <div class="flow-box"><b>Your services</b><small>gRPC clients, typed Protobuf</small></div>
-        <div class="flow-box"><b>OpenAI SDKs &amp; agents</b><small>base_url → :8080/v1</small></div>
-      </div>
-      <div class="flow-arrow"></div>
-      <div class="flow-box flow-core">
-        <b class="grad-text">KTMS</b>
-        <div><small>Postgres for config &amp; encrypted keys · Redis for limits</small></div>
-        <div class="chips"><span>vendor keys</span><span>effort rules</span><span>fallbacks</span><span>RPM &amp; budgets</span><span>batches</span><span>node pool</span></div>
-      </div>
-      <div class="flow-arrow"></div>
-      <div class="flow-col">
-        <div class="flow-box"><b>Cloud vendors</b><small>OpenAI · Anthropic · Gemini · DeepSeek</small></div>
-        <div class="flow-box"><b>Your GPUs</b><small>Ollama · vLLM · llama.cpp</small></div>
-      </div>
-    </div>
-    <div class="flow-down reveal">↓ one usage event per call</div>
-    <div class="flow-bottom reveal">
-      <div class="flow-box"><b>light-tokenmeter</b><small>who spends, on what, and is it worth it</small></div>
-      <div class="flow-box"><b>ktms-admin</b><small>models, rules, keys, playground, spend</small></div>
     </div>
   </div>
 </section>
