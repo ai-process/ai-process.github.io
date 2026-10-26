@@ -1,6 +1,6 @@
 ---
 title: "Deploy the stack"
-nav_order: 13
+nav_order: 14
 nav_group: prompts
 permalink: /docs/prompts/deploy-stack/
 ---

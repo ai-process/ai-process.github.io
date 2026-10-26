@@ -1,6 +1,6 @@
 ---
 title: "Usage and spend reports"
-nav_order: 16
+nav_order: 17
 nav_group: prompts
 permalink: /docs/prompts/usage-reports/
 ---

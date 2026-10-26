@@ -1,6 +1,6 @@
 ---
 title: "Integrate a service"
-nav_order: 11
+nav_order: 12
 nav_group: prompts
 permalink: /docs/prompts/integrate-service/
 ---

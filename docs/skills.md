@@ -30,6 +30,7 @@ environment Claude Code runs in. To let the assistant change Keystone, add your 
 
 | Skill | For |
 | --- | --- |
+| `/ktms:assess` | Where Keystone fits the system the assistant runs in: services and their LLM calls, the topology, the path per service, what it brings and costs, the plan; read-only |
 | `/ktms:integrate` | Moving a service's LLM calls onto Keystone: one client module, an effort per call site, attribution, the error policy, tests |
 | `/ktms:configure` | Routing, keys, limits and teams as a ktms config file, planned and applied, then checked with `route explain` |
 | `/ktms:deploy` | Compose or Helm for Keystone, light-tokenmeter and ktms-admin, and the first-start runbook |

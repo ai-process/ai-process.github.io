@@ -35,6 +35,7 @@ limits. Each page ends with a list to check the result against.
 
 | Prompt | What you get |
 | --- | --- |
+| [Assess your system](/docs/prompts/assess-system/) | Where Keystone, its stores, light-tokenmeter and ktms-admin go in your system, what each service changes, what it brings and costs, and the plan, before any change. |
 | [Integrate a service](/docs/prompts/integrate-service/) | Your service calls Keystone over the OpenAI-compatible HTTP API or gRPC, with effort, attribution and errors handled in one client module. |
 | [Configure routing](/docs/prompts/configure-routing/) | Models, vendor credentials, rules, client keys, key policies and spend limits as a repeatable script. |
 | [Deploy the stack](/docs/prompts/deploy-stack/) | Docker Compose or Kubernetes (Helm) configuration for KTMS, light-tokenmeter and ktms-admin, with secrets, TLS and monitoring. |

@@ -1,6 +1,6 @@
 ---
 title: "Configure routing"
-nav_order: 12
+nav_order: 13
 nav_group: prompts
 permalink: /docs/prompts/configure-routing/
 ---

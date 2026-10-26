@@ -1,6 +1,6 @@
 ---
 title: "Add a local GPU node"
-nav_order: 14
+nav_order: 15
 nav_group: prompts
 permalink: /docs/prompts/local-node/
 ---
