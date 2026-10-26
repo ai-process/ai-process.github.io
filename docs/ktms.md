@@ -266,7 +266,7 @@ kubectl create secret generic ktms-secrets \
   --from-literal=BOOTSTRAP_ADMIN_KEY="$(head -c 24 /dev/urandom | base64 | tr -d '/+=')"
 
 # 2. Install the release
-helm install ktms oci://ghcr.io/ai-process/charts/ktms --version 1.3.4 \
+helm install ktms oci://ghcr.io/ai-process/charts/ktms --version 1.3.5 \
   --set secrets.existingSecret=ktms-secrets \
   --set ingress.enabled=true \
   --set "ingress.hosts[0].host=proxy.example.com" \
@@ -301,7 +301,7 @@ so the node must be reachable; the agent can do that itself:
 ```bash
 export NODE_KEY=...                       # or --node-key-file
 ./bin/ktms-node --proxy-addr proxy.example.com:443 --tls \
-  --engine ollama --expose=cloudflared    # needs the cloudflared binary
+  --engine ollama --expose=cloudflared    # needs cloudflared 2026.10.3 or newer
 ```
 
 With `--expose=cloudflared` the agent starts a localhost gateway in front of the engine and a
@@ -311,6 +311,9 @@ access key (sent to the proxy as the node auth token, never printed) and forward
 `POST /v1/chat/completions` and `GET /v1/models`; pulling or deleting models is not reachable.
 Slow responses are kept alive with padding so the tunnel's 100 s idle cutoff does not drop them.
 Quick tunnels have no SLA; for a stable address use `--expose=none` and your own `--endpoint`.
+cloudflared older than 2026.10.3 trusts the eMudhra intermediates whose keys leaked in October
+2026: from Keystone 1.3.5 on the agent warns about it at start, `ktms-node doctor` reports it, and
+re-running `install-node.sh` updates it.
 
 Flags: `--proxy-addr` (default `127.0.0.1:50051`), `--tls` (dial over TLS with the system CA
 roots, for a proxy behind a TLS load balancer; off by default), `--node-id` (defaults to the

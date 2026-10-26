@@ -21,8 +21,8 @@ limits. Each page ends with a list to check the result against.
 2. Copy the prompt, replace the `<…>` placeholders, and send it.
 3. Check the result against the page's list before you merge or apply anything.
 
-- The prompts pin the current releases: Keystone `v1.3.4`, light-tokenmeter `v1.1.0` and ktms-admin
-  `v1.1.0` in the URLs. For a later release, replace the tag.
+- The prompts pin the current releases: Keystone `v1.3.5`, light-tokenmeter `v1.1.0` and ktms-admin
+  `v1.1.1` in the URLs. For a later release, replace the tag.
 - From Keystone 1.2 and light-tokenmeter 1.1, the [command-line tools](/docs/cli/), the
   [MCP servers](/docs/mcp/) and the [skills](/docs/skills/) do these tasks directly; each prompt says
   how. The prompts remain for assistants without MCP or skills.
@@ -47,12 +47,12 @@ limits. Each page ends with a list to check the result against.
 
 | Source | Pinned URL |
 | --- | --- |
-| Keystone (KTMS) README | `https://raw.githubusercontent.com/ai-process/ktms/v1.3.4/README.md` |
-| Gateway API (`ktms.v1`) | `https://raw.githubusercontent.com/ai-process/ktms/v1.3.4/proto/ktms/v1/gateway.proto` |
-| Admin API (`ktms.v1`) | `https://raw.githubusercontent.com/ai-process/ktms/v1.3.4/proto/ktms/v1/admin.proto` |
-| Helm chart values | `https://raw.githubusercontent.com/ai-process/ktms/v1.3.4/deploy/helm/ktms/values.yaml` |
-| Node installer | `https://raw.githubusercontent.com/ai-process/ktms/v1.3.4/scripts/install-node.sh` |
+| Keystone (KTMS) README | `https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/README.md` |
+| Gateway API (`ktms.v1`) | `https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/proto/ktms/v1/gateway.proto` |
+| Admin API (`ktms.v1`) | `https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/proto/ktms/v1/admin.proto` |
+| Helm chart values | `https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/deploy/helm/ktms/values.yaml` |
+| Node installer | `https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/scripts/install-node.sh` |
 | light-tokenmeter README | `https://raw.githubusercontent.com/ai-process/light-tokenmeter/v1.1.0/README.md` |
-| ktms-admin README | `https://raw.githubusercontent.com/ai-process/ktms-admin/v1.1.0/README.md` |
-| Full-stack Compose file | `https://raw.githubusercontent.com/ai-process/ktms-admin/v1.1.0/examples/compose.yaml` |
+| ktms-admin README | `https://raw.githubusercontent.com/ai-process/ktms-admin/v1.1.1/README.md` |
+| Full-stack Compose file | `https://raw.githubusercontent.com/ai-process/ktms-admin/v1.1.1/examples/compose.yaml` |
 {% endraw %}
