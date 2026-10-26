@@ -26,9 +26,9 @@ place. Use it in the repository of the service.
 ```text
 You are moving this service's LLM calls onto Keystone (KTMS) 1.0, a self-hosted LLM gateway.
 Read these sources first and prefer them to anything you remember about LLM gateways:
-- https://raw.githubusercontent.com/ai-process/ktms/v1.2.0/README.md
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.3/README.md
   (sections "OpenAI-compatible HTTP API", "Calling Keystone", "Error contract")
-- https://raw.githubusercontent.com/ai-process/ktms/v1.2.0/proto/ktms/v1/gateway.proto (gRPC only)
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.3/proto/ktms/v1/gateway.proto (gRPC only)
 
 Facts:
 - HTTP is the OpenAI wire format at <KTMS_HTTP_URL>/v1: /chat/completions (SSE streaming, tools,

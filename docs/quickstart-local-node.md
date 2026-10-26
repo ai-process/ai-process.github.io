@@ -106,6 +106,7 @@ export NODE_KEY="ktms_node_0123456789abcdef..."
 * `--max-concurrent`: Max concurrent request limit (default 16).
 * `--schedule-file`: Load schedule by local time, re-read on change; a missing file means 100%. See [Load Schedule](/docs/local-nodes/#load-schedule-capacity-levels).
 * `--warmup`: How long before a paused window ends the model is loaded again (default 5m).
+* `--stats-dir`, `--stats-retention`, `--stats`: Where the node's usage log is kept, for how long (default 90d), and whether at all (default on). Read it with `ktms-node stats`; see [Usage Log](/docs/local-nodes/#usage-log-ktms-node-stats).
 
 ---
 

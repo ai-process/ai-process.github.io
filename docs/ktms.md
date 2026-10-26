@@ -127,41 +127,46 @@ The response includes canonical observability headers (`X-KTMS-Vendor`, `X-KTMS-
 
 ---
 
-### Manual Setup via Admin RPC (Advanced)
+### Setting it up from scratch with `ktms init`
 
-If you prefer to configure everything manually from scratch (without auto-seeding), disable `AUTO_SEED=false` and use [`grpcurl`](https://github.com/fullstorydev/grpcurl) with `BOOTSTRAP_ADMIN_KEY`:
+From Keystone 1.3.3 on. To start without auto-seeding, set `AUTO_SEED=false` and let the
+[`ktms` command](/docs/cli/) ask for the rest:
 
 ```bash
-export ADMIN="authorization: Bearer dev-bootstrap"
-G="grpcurl -plaintext -H"
-
-# 1. Mint a client API key (plaintext is returned once)
-$G "$ADMIN" -d '{"name":"my-app","scopes":["generate"]}' \
-  localhost:9090 ktms.v1.AdminService/MintAPIKey
-
-# 2. Assign vendor credential to the client key
-$G "$ADMIN" -d '{"api_key_name":"my-app","vendor":"openai","plain_key":"sk-..."}' \
-  localhost:9090 ktms.v1.AdminService/SetVendorKey
-
-# 3. Register a model
-$G "$ADMIN" -d '{"model":{"id":"gpt-4o-mini","vendor":"openai",
-  "efforts":["EFFORT_LOW","EFFORT_MEDIUM","EFFORT_HIGH"],
-  "price_in_per_mtok":0.15,"price_out_per_mtok":0.60,"enabled":true}}' \
-  localhost:9090 ktms.v1.AdminService/UpsertModel
-
-# 4. Set routing rules (catch-all for each effort tier is mandatory)
-$G "$ADMIN" -d '{"rules":[
-  {"name":"default","priority":1,"use":["gpt-4o-mini"],"enabled":true}]}' \
-  localhost:9090 ktms.v1.AdminService/ReplaceRules
-
-# 5. Call gRPC GenerateText with your client key
-$G "authorization: Bearer ktms_<your key>" -d '{
-  "effort":"EFFORT_LOW",
-  "messages":[{"role":"MESSAGE_ROLE_USER","text":"Say hi in three words."}]}' \
-  localhost:9090 ktms.v1.GatewayService/GenerateText
+ktms init                       # a context named local; ktms init prod for another one
 ```
 
-Once real keys exist in production, unset `BOOTSTRAP_ADMIN_KEY`.
+It asks for the Admin API address and the admin key (`BOOTSTRAP_ADMIN_KEY`, `dev-bootstrap` in
+Compose), keeps the key in the keychain or a `0600` file under a context it makes current, then for
+the vendor keys (OpenAI, Gemini, Anthropic; `OPENAI_API_KEY` and the like are offered when set) and
+a client key name. It writes `ktms.yaml` with the default models and rules of those vendors, shows
+the plan and applies it:
+
+```text
++ model gpt-4o-mini
++ api key my-app
++ vendor key my-app/openai
+~ rules (4 rules, replaced together)
+Plan: 5 to create, 1 to change, 0 to delete.
+Apply these changes? [y/N] y
+
+New client keys. They are shown only now; store them in your secret manager:
+  my-app: ktms_…
+```
+
+The vendor keys go to Keystone and stay out of the file; the client key is kept in the context too,
+so a test call needs nothing more. From then on the file is the configuration:
+
+```bash
+ktms chat "Say hi"              # the answer, then rule, model and vendor
+ktms config plan -f ktms.yaml   # after editing it
+ktms config apply -f ktms.yaml
+```
+
+On a Keystone that has models already, `ktms init` writes them to `ktms.yaml` instead. The same
+steps one by one are `ktms context set`, `ktms keys mint`, `ktms vendor-keys set` and
+[`ktms config apply`](#configuration-as-a-file). Once real keys exist in production, unset
+`BOOTSTRAP_ADMIN_KEY`.
 
 ## Resource footprint
 
@@ -261,7 +266,7 @@ kubectl create secret generic ktms-secrets \
   --from-literal=BOOTSTRAP_ADMIN_KEY="$(head -c 24 /dev/urandom | base64 | tr -d '/+=')"
 
 # 2. Install the release
-helm install ktms oci://ghcr.io/ai-process/charts/ktms --version 1.2.0 \
+helm install ktms oci://ghcr.io/ai-process/charts/ktms --version 1.3.3 \
   --set secrets.existingSecret=ktms-secrets \
   --set ingress.enabled=true \
   --set "ingress.hosts[0].host=proxy.example.com" \
