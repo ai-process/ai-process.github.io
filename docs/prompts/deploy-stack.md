@@ -29,14 +29,14 @@ in your infrastructure repository or an empty folder.
 ```text
 Write deployment configuration for Keystone (KTMS) 1.0, light-tokenmeter 1.0 and ktms-admin 1.0.
 Read first, and prefer them to memory:
-- https://raw.githubusercontent.com/ai-process/ktms/v1.3.4/README.md
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/README.md
   (sections "Installation", "Configuration reference", "Production checklist", "Operations")
-- https://raw.githubusercontent.com/ai-process/ktms/v1.3.4/deploy/helm/ktms/values.yaml
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/deploy/helm/ktms/values.yaml
 - https://raw.githubusercontent.com/ai-process/light-tokenmeter/v1.1.0/README.md
   (sections "Configuration", "Authentication", "Metrics")
-- https://raw.githubusercontent.com/ai-process/ktms-admin/v1.1.0/README.md
+- https://raw.githubusercontent.com/ai-process/ktms-admin/v1.1.1/README.md
   (sections "Configuration reference", "Who may sign in", the sign-in section you use, "Deployment")
-- https://raw.githubusercontent.com/ai-process/ktms-admin/v1.1.0/examples/compose.yaml
+- https://raw.githubusercontent.com/ai-process/ktms-admin/v1.1.1/examples/compose.yaml
   (a working Compose file for the whole stack)
 
 Target (edit before sending):
@@ -56,7 +56,7 @@ Facts:
   store and back it up apart from the database), REDIS_ADDR (and REDIS_PASSWORD),
   USAGE_COLLECTOR_HOST=<light-tokenmeter>:9090 with USAGE_COLLECTOR_TOKEN, and on first start
   only BOOTSTRAP_ADMIN_KEY to mint real admin keys; remove it afterwards.
-- Helm: helm install ktms oci://ghcr.io/ai-process/charts/ktms --version 1.3.4. Secrets via
+- Helm: helm install ktms oci://ghcr.io/ai-process/charts/ktms --version 1.3.5. Secrets via
   secrets.existingSecret holding DATABASE_URL, KTMS_ENCRYPTION_KEYS and optionally
   BOOTSTRAP_ADMIN_KEY, REDIS_PASSWORD, USAGE_COLLECTOR_TOKEN. Settings under config.* (redisAddr,
   usageCollectorHost, spendLimitsFailMode, …), ingress.* with a separate ingress.grpc for gRPC,
