@@ -31,7 +31,10 @@ same for `tokenmeter`.
 
 ## Contexts and keys
 
-A context names a service and where its key lives, so a command needs no flags:
+A context names a service and where its key lives, so a command needs no flags. From Keystone 1.3.3
+on, `ktms init prod` asks for the address and the keys, saves the context and, on an empty
+Keystone, writes and applies a first `ktms.yaml` (see
+[Setting it up from scratch](/docs/ktms/#setting-it-up-from-scratch-with-ktms-init)); by hand:
 
 ```bash
 ktms context set prod --addr ktms.example.com:443 --tls --http https://ktms.example.com

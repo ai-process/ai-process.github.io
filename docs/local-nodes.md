@@ -27,6 +27,7 @@ permalink: /docs/local-nodes/
 - [Usage Collector Integration (`light-tokenmeter`)](#usage-collector-integration-light-tokenmeter)
 - [Node Agent (ktms-node)](#node-agent-ktms-node)
 - [Load Schedule (Capacity Levels)](#load-schedule-capacity-levels)
+- [Usage Log (`ktms-node stats`)](#usage-log-ktms-node-stats)
 
 ---
 
@@ -142,6 +143,9 @@ In `HeartbeatResponse`, the gateway returns:
 * `active_proxy_requests` (`int32`): Requests still running on this node per Redis, not counting post-request cooldown holds (used by the agent to drain before `SIGTERM` exit and to unload the model during a pause).
 * `capacity_applied` (`bool`): `true` from gateways that apply `capacity_percent`; an agent that sees `false` below 100% warns that the gateway is older.
 
+### 3. Usage Log (`PullNodeUsage`)
+The agent pulls the node's request log by cursor: `after_id` (empty = from the oldest kept record), `limit` (default 500, at most 5000). The response carries `records`, `next_id` (the next cursor), `more` (pull again now) and `gap_until`, set when the cursor is older than the log: records before that moment may be missing. Only the key's own node may pull; a key bound to no node pulls nothing. `FailedPrecondition` means the gateway keeps no log (`NODE_USAGE_RETENTION_HOURS=0`). See [Usage Log](#usage-log-ktms-node-stats).
+
 ---
 
 ## Routing & Load Balancing Algorithm (Smooth WRR + Latency)
@@ -238,4 +242,35 @@ mon-fri 10:00-23:00 0
 **Pause and resume.** On a level change the agent sends a heartbeat at once. At 0% its gateway answers `503` after a 5 s grace (for gateways that ignore levels and for requests already on their way), and once `active_proxy_requests` is 0 the agent unloads the served Ollama models (`keep_alive: 0`), freeing the machine's memory. The tunnel and heartbeats keep running. `--warmup` (default `5m`) before the next window with a level above 0 the agent loads the models again, so the first request does not wait. Engines other than Ollama only stop being routed to.
 
 **Admin API.** `ListNodes` reports `capacity_percent`, `effective_slots` and the `PAUSED` state; `active_requests` counts running requests, not cooldown holds.
+
+---
+
+## Usage Log (`ktms-node stats`)
+
+The owner of a node can see how their machine was used: requests, tokens, busy time, the effect of the [load schedule](#load-schedule-capacity-levels). The gateway is the source: only it knows every request, its tokens and its outcome, including with `--expose none`, where the agent is not on the request path. The log is kept on the node and read with the same binary.
+
+**On the gateway.** After each call to a node, `PoolAdapter` appends a record to the Redis stream `node:usage:{node_id}` (`XADD … MINID ~`, trimmed by age; a TTL refreshed on each write removes the log of a node that stopped getting requests). Every replica writes to the same stream. The record holds the start time, duration, TTFT (streams), model, kind (`chat`, `stream`, `judge`, `rollouts`), input, output and cache-read tokens, outcome (`ok`; `error` or `timeout` when the node failed; `rejected` when the engine refused the request itself with a 4xx other than 408/429; `cancelled` when the caller left) with `http_<status>` when known, the node's level when the request ended, and the cooldown given. **No user, key, team or text:** the owner sees how much the machine worked, never for whom. The write never delays or fails the request. The log is kept `NODE_USAGE_RETENTION_HOURS` (default `168`, `0` = off) and needs Redis 6.2 or newer. Revoking a node key deletes the node's log, so a new key for the same `node_id` cannot read the previous holder's history.
+
+**On the node.** Every minute the agent pulls new records with `PullNodeUsage` into `requests-YYYY-MM-DD.jsonl` (the local day each request started) and moves its cursor only after the records are synced, so a crash repeats records and never loses them. Each minute it also writes its own sample from the last heartbeat to `samples-YYYY-MM-DD.jsonl`: state (`serving`, `paused`, `draining`, `offline`), level, gateway and engine load, GPU, warm models. Gaps the gateway reported go to `gaps.jsonl`. Closed days are gzipped and kept `--stats-retention` (default `90d`, `0` = forever). The directory is `--stats-dir` (the installer passes `~/.ktms-node/stats`); `--stats=false` turns it off. Against a gateway without the log the agent keeps only its samples. `doctor` checks that the log moves.
+
+**Reading it.** `ktms-node stats` reads local files only, offline and without the node key:
+
+```bash
+ktms-node stats                                  # last 24 hours by hour
+ktms-node stats --since 7d                       # by day
+ktms-node stats --since 2026-10-01 --by model --format csv
+ktms-node stats --tail                           # requests as they arrive
+```
+
+| Column | Meaning |
+| --- | --- |
+| Requests, Errors | requests that started in the period, and those the node failed (`error`, `timeout`) |
+| Tokens in, Tokens out | sums |
+| Busy | share of the period with at least one request running; parallel requests count once |
+| Cooldown | slot time held after requests at a partial level |
+| Paused | share of the agent's samples at 0% |
+| No data | stretches without samples: the agent was not running |
+| TTFT p50/p95, TPS | time to first token and output tokens per second |
+
+Stretches the gateway no longer had when the agent pulled are listed as missing. `--until`, `--format json|csv` and `--dir` are also available.
 {% endraw %}
