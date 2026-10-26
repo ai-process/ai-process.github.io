@@ -30,9 +30,9 @@ terminal history.
 ```text
 Write a re-runnable script that configures Keystone (KTMS) 1.0 through its Admin API.
 Read first, and prefer them to memory:
-- https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/README.md
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.6/README.md
   (section "Setting it up: keys, models, rules" and its subsections, "Speech, image and judgment rules")
-- https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/proto/ktms/v1/admin.proto
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.6/proto/ktms/v1/admin.proto
 
 Requirements (edit before sending):
 - Gateway: <host:9090>, TLS <yes|no>; admin key in $KTMS_ADMIN_KEY.

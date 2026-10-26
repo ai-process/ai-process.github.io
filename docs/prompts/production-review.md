@@ -28,7 +28,7 @@ changes.
 ```text
 Review this deployment of Keystone (KTMS) 1.0, light-tokenmeter 1.0 and ktms-admin 1.0 for
 production. Read first, and prefer them to memory:
-- https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/README.md
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.6/README.md
   (sections "Production checklist", "Operations", "Backups and the encryption keyring",
   "When a dependency fails", "Metrics and alerts", "Sizing")
 - https://raw.githubusercontent.com/ai-process/light-tokenmeter/v1.1.0/README.md

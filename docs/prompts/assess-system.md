@@ -28,7 +28,7 @@ and costs here, and in which order to do it. Start here when you are not sure KT
 ```text
 Assess how Keystone (KTMS) 1.x, a self-hosted LLM gateway, would fit this system. Read first, and
 prefer them to memory:
-- https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/README.md
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.6/README.md
   (sections "How it works", "Concepts", "OpenAI-compatible HTTP API", "Endpoints",
   "Resource footprint", "Sizing", "Production checklist")
 - https://raw.githubusercontent.com/ai-process/light-tokenmeter/v1.1.0/README.md (introduction)
