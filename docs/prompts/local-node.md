@@ -1,6 +1,6 @@
 ---
 title: "Add a local GPU node"
-nav_order: 14
+nav_order: 15
 nav_group: prompts
 permalink: /docs/prompts/local-node/
 ---
@@ -28,9 +28,9 @@ side (one installer command).
 ```text
 Help me add a local inference node to Keystone (KTMS) 1.0 and route to it with cloud fallback.
 Read first, and prefer them to memory:
-- https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/README.md
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.6/README.md
   (sections "Run a node", "If the node does not show up", "Choosing a model and placement")
-- https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/scripts/install-node.sh (run --help)
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.6/scripts/install-node.sh (run --help)
 
 Setup (edit before sending):
 - Gateway: <proxy.example.com:443>, TLS <yes|no>; admin key in $KTMS_ADMIN_KEY.
@@ -51,7 +51,7 @@ Facts:
   "auto:nodes-only" (never leave the machine), "auto:cloud-first", "auto:cloud-only".
 - On the machine, one command installs Ollama, the model and the agent as user services, keeps
   the machine awake and waits for registration:
-  curl -fsSL https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/scripts/install-node.sh | sh -s -- \
+  curl -fsSL https://raw.githubusercontent.com/ai-process/ktms/v1.3.6/scripts/install-node.sh | sh -s -- \
     --proxy <gateway> --node-id <id> --model <tag> [--max-concurrency N] [--context N] [--plaintext]
   The proxy port defaults to 443 with TLS on; --plaintext is for a gateway without TLS.
   It asks for the node key with hidden input (or --key-file PATH), re-running updates, --doctor

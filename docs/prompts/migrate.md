@@ -1,6 +1,6 @@
 ---
 title: "Migrate from LiteLLM or SDKs"
-nav_order: 15
+nav_order: 16
 nav_group: prompts
 permalink: /docs/prompts/migrate/
 ---
@@ -28,10 +28,10 @@ the services.
 ```text
 Plan and prepare a migration to Keystone (KTMS) 1.0 from <LiteLLM Proxy | direct vendor SDK calls>.
 Read first, and prefer them to memory:
-- https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/README.md
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.6/README.md
   (sections "How it works", "Setting it up: keys, models, rules", "OpenAI-compatible HTTP API",
   "Concepts", "Error contract")
-- https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/proto/ktms/v1/admin.proto
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.6/proto/ktms/v1/admin.proto
 
 Facts that differ from LiteLLM:
 - Clients do not pick deployments by alias. They send an effort ("auto", "auto:low|medium|high")

@@ -1,6 +1,6 @@
 ---
 title: "Usage and spend reports"
-nav_order: 16
+nav_order: 17
 nav_group: prompts
 permalink: /docs/prompts/usage-reports/
 ---
@@ -30,7 +30,7 @@ Build <a weekly spend report | a script | an alert job> on light-tokenmeter 1.0 
 Keystone (KTMS) 1.0. Read first, and prefer them to memory:
 - https://raw.githubusercontent.com/ai-process/light-tokenmeter/v1.1.0/README.md
   (sections "Sending events", "Finding the greedy and the worthy", "API reference", "Authentication")
-- https://raw.githubusercontent.com/ai-process/ktms/v1.3.5/README.md
+- https://raw.githubusercontent.com/ai-process/ktms/v1.3.6/README.md
   (sections "Spend limits (optional)", "Concepts": usage reporting)
 
 What I want (edit before sending): <spend per project and model for last month, top 10 action ids

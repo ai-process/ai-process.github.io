@@ -27,13 +27,14 @@ PAGES = {
     "mcp.md": ("mcp", "MCP servers", 8),
     "skills.md": ("skills", "Skills & Claude Code plugin", 9),
     "prompts/index.md": ("prompts", "Overview", 10),
-    "prompts/integrate-service.md": ("prompts/integrate-service", "Integrate a service", 11),
-    "prompts/configure-routing.md": ("prompts/configure-routing", "Configure routing", 12),
-    "prompts/deploy-stack.md": ("prompts/deploy-stack", "Deploy the stack", 13),
-    "prompts/local-node.md": ("prompts/local-node", "Add a local GPU node", 14),
-    "prompts/migrate.md": ("prompts/migrate", "Migrate from LiteLLM or SDKs", 15),
-    "prompts/usage-reports.md": ("prompts/usage-reports", "Usage and spend reports", 16),
-    "prompts/production-review.md": ("prompts/production-review", "Production review", 17),
+    "prompts/assess-system.md": ("prompts/assess-system", "Assess your system", 11),
+    "prompts/integrate-service.md": ("prompts/integrate-service", "Integrate a service", 12),
+    "prompts/configure-routing.md": ("prompts/configure-routing", "Configure routing", 13),
+    "prompts/deploy-stack.md": ("prompts/deploy-stack", "Deploy the stack", 14),
+    "prompts/local-node.md": ("prompts/local-node", "Add a local GPU node", 15),
+    "prompts/migrate.md": ("prompts/migrate", "Migrate from LiteLLM or SDKs", 16),
+    "prompts/usage-reports.md": ("prompts/usage-reports", "Usage and spend reports", 17),
+    "prompts/production-review.md": ("prompts/production-review", "Production review", 18),
 }
 TOOLS = {"cli.md", "mcp.md", "skills.md"}
 BENCH = "https://github.com/ai-process/ktms#resource-footprint"
