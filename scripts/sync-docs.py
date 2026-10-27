@@ -35,6 +35,7 @@ PAGES = {
     "prompts/migrate.md": ("prompts/migrate", "Migrate from LiteLLM or SDKs", 16),
     "prompts/usage-reports.md": ("prompts/usage-reports", "Usage and spend reports", 17),
     "prompts/production-review.md": ("prompts/production-review", "Production review", 18),
+    "roadmap.md": ("roadmap", "Roadmap", 19),
 }
 TOOLS = {"cli.md", "mcp.md", "skills.md"}
 BENCH = "https://github.com/ai-process/ktms#resource-footprint"
