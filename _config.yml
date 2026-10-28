@@ -2,6 +2,8 @@ title: ai-process
 description: Open-source, Apache-2.0-licensed infrastructure for running LLMs in production — Keystone (KTMS) gateway, light-tokenmeter and ktms-admin.
 url: "https://ai-process.dev"
 baseurl: ""
+# GA4 stream shared with blog.ai-process.dev so site↔blog visits stay one journey.
+google_analytics: G-PPG80T8NQW
 
 markdown: kramdown
 highlighter: rouge
