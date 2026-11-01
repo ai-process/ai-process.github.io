@@ -25,6 +25,8 @@ vendor is down, enforces rate and spend limits, and records usage.
   batch generation at 50% discount, speech synthesis, image generation and typed judgments.
 - **OpenAI-compatible HTTP API.** Point any OpenAI SDK or tool at `http://host:8080/v1`
   and get routing, fallbacks and limits for free.
+- **Anthropic Messages API.** Claude Code and the Anthropic SDKs run through KTMS with
+  `ANTHROPIC_BASE_URL`, on any vendor's model.
 - **Usage reporting.** Optionally forwards one event per call to a gRPC usage sink.
 - **Small footprint.** Single Go binary: ~67 MB image, ~7 MiB idle RAM, under 1 ms of added latency.
 - **Web console.** [ktms-admin](/docs/ktms-admin/) manages models, rules and keys in the browser.
@@ -51,6 +53,8 @@ vendor is down, enforces rate and spend limits, and records usage.
 - [Command-line tool](#command-line-tool)
 - [Calling Keystone. The Model Switchboard. (KTMS)](#calling-keystone-the-model-switchboard-ktms)
 - [OpenAI-compatible HTTP API](#openai-compatible-http-api)
+- [Anthropic Messages API](#anthropic-messages-api)
+- [MCP gateway](#mcp-gateway)
 - [Concepts](#concepts)
 - [Error contract](#error-contract)
 - [API stability](#api-stability)
@@ -74,12 +78,27 @@ Two gRPC services share port `9090`:
 | `ktms.v1.AdminService` | models, rules, vendor keys, API keys, key rotation, `ExplainRoute` | `admin`; `admin:read` for the `Get*` and `List*` reads and `ExplainRoute` |
 
 Port `8080` serves the health probes (`/healthz`, `/readyz`) and the
-[OpenAI-compatible HTTP API](#openai-compatible-http-api) under `/v1`. gRPC server
+[OpenAI-compatible HTTP API](#openai-compatible-http-api) under `/v1`, the
+[Anthropic Messages API](#anthropic-messages-api) at `/v1/messages`, and the
+[MCP gateway](#mcp-gateway) under `/mcp` for keys with the `mcp` scope. gRPC server
 reflection is on, so `grpcurl` works without the `.proto` files.
 
 ## Quick start (Docker Compose)
 
-The fastest way to run KTMS locally is with Docker Compose. With `AUTO_SEED` enabled (default in compose), the proxy automatically initializes default models, routing rules, and a ready-to-use client key (`ktms_dev_default_key`).
+The fastest way to try Keystone is one command. It needs Docker with the Compose plugin, runs the
+published images (no clone, no build) with Postgres and Redis on localhost only, asks for an
+OpenAI, Anthropic or Gemini key unless one is in the environment, and prints your first request:
+
+```bash
+curl -fsSL https://ai-process.dev/install.sh | sh
+```
+
+It keeps its files in `~/ktms` (a generated keyring, admin and client keys in `.env`), and a re-run
+keeps them while it adds new vendor keys or moves to a new release. Options such as `--port`,
+`--version` and `--uninstall` are in `sh -s -- --help`; the script is
+[`scripts/install.sh`](https://github.com/ai-process/ktms/blob/main/scripts/install.sh).
+
+From a clone instead, Docker Compose builds the image from source. With `AUTO_SEED` enabled (default in compose), the proxy automatically initializes default models, routing rules, and a ready-to-use client key (`ktms_dev_default_key`).
 
 ### 1. Launch the stack
 
@@ -389,6 +408,7 @@ Everything is an environment variable; see [`env.example`](https://github.com/ai
 | `GRPC_MAX_RECV_MSG_SIZE` | `16777216` | Maximum gRPC message receive size in bytes (16MB). |
 | `HTTP_ADDR` | `:8080` | HTTP listen address (health probes and the OpenAI-compatible API). |
 | `HTTP_API_ENABLED` | `true` | Serve the `/v1` API on `HTTP_ADDR`; `false` leaves only the health probes. |
+| `MCP_GATEWAY_ENABLED` | `true` | Serve the [MCP gateway](#mcp-gateway) (`/mcp`, `/mcp/{server}`) on `HTTP_ADDR`. |
 | `HTTP_API_TIMEOUT` | `5m` | Read/write timeout for one HTTP API call (it waits on an upstream model). |
 | `METRICS_ADDR` | `:9091` | Internal HTTP listen address for Prometheus `/metrics` and `/healthz`. Empty disables the metrics server. |
 | `LOG_LEVEL` | `info` | zerolog level. |
@@ -508,7 +528,8 @@ user_rate_limits:
 - Secrets never go in the file. A vendor key is read from the variable named in
   `plain_key_env` and compared with the stored one by fingerprint (`VendorKeyInfo.fingerprint`);
   a new client key is printed once, after apply. Exported vendor keys point at
-  `KTMS_VENDOR_KEY_<KEY>_<VENDOR>`.
+  `KTMS_VENDOR_KEY_<KEY>_<VENDOR>`. MCP credentials (`mcp_credentials`) work the same way with
+  `value_env`, exported as `KTMS_MCP_CREDENTIAL_<SERVER>`.
 - What the Admin API cannot change is refused before anything is applied: a key's scopes or
   team, or a revoked key named again. Mint a key under another name instead.
 - A team's cap is its `monthly_budget_usd`; `spend_limits` holds key and user caps.
@@ -524,9 +545,9 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" \
 ```
 
 Keys look like `ktms_<hex>` (keys minted before the rename start with `llm_` and keep working). Only a hash is stored, and the plaintext is returned once.
-Scopes: `generate` (data plane), `admin` (implies everything) and `admin:read` (the Admin API
-reads: `GetConfig`, `GetSpend`, `GetTeam`, `GetTeamSpend`, `ExplainRoute` and every `List*`; nothing that changes
-state). A read key sees every tenant, so it cannot be bound to an organization or team. `GetConfig`
+Scopes: `generate` (data plane), `mcp` (the [MCP gateway](#mcp-gateway)), `admin` (implies
+everything) and `admin:read` (the Admin API reads: `GetConfig`, `GetSpend`, `GetTeam`,
+`GetTeamSpend`, `ExplainRoute` and every `List*`; nothing that changes state). A read key sees every tenant, so it cannot be bound to an organization or team. `GetConfig`
 never returns a vendor key itself, only its fingerprint.
 `ListAPIKeys` and `RevokeAPIKey` do what they say.
 
@@ -540,6 +561,10 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" \
   localhost:9090 ktms.v1.AdminService/SetAPIKeyPolicy
 ```
 
+- `data_classification`: `restricted` keeps every call of the key on self-hosted nodes; see
+  [Restricted data](#restricted-data).
+- `allowed_mcp`: the MCP servers and tools a key with the `mcp` scope may use; see
+  [MCP gateway](#mcp-gateway).
 - `allowed_models`: the models the key may call; empty allows any. A chain keeps only the models
   both the key's and its team's lists allow; an override outside them, or a chain with none left,
   is `PERMISSION_DENIED` (the message names `key` or `team`).
@@ -625,6 +650,8 @@ Capabilities a model may declare:
 | `batch` | Can serve asynchronous batch text generation requests (`SubmitBatch`). |
 | `google_search` | Can serve requests with `enable_google_search`. |
 | `no_thinking` | The model reasons by default and bills the reasoning as output (DeepSeek V4, Gemma 4 on Ollama). The proxy turns it off: `thinking: {"type": "disabled"}` for DeepSeek, `reasoning_effort: "none"` for Ollama, and for `local` models when the serving node runs Ollama (other engines get no switch). OpenAI-compatible vendors only. |
+| `no_sampling` | The model's API rejects sampling fields Keystone would otherwise send it (see [Sampling](#sampling)): it gets none of `temperature`, `top_p`, `stop` and `seed`, and responses report them as ignored. |
+| `sampling` | The model takes its vendor's sampling fields although its id says otherwise (see [Sampling](#sampling)): an Azure deployment name, a Claude alias, a reasoning model run without reasoning. |
 | `prompt_cache` | Anthropic only: puts `cache_control` breakpoints after the tools, the system prompt and, in a multi-turn conversation, the latest turn, so repeated prefixes are read at 0.1x input. A new prefix is written at 1.25x, so set it on models whose instructions or conversations repeat. |
 | `vision` | Can process image parts in multimodal messages (`ImagePart`). |
 | `audio_input` | Can process audio parts in multimodal messages (`AudioPart`). |
@@ -724,6 +751,8 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" -d '{"name":"search-ser
   with `RESOURCE_EXHAUSTED throttled:spend_team_monthly`. It is set only through
   `CreateTeam`/`UpdateTeam` (`0` lifts it); `SetSpendLimit` refuses `subject_type: "team"`.
   `GetTeamSpend` reads the enforced counter, which runs only while a budget is set.
+- `data_classification: restricted` keeps every call of the team's keys on self-hosted nodes; see
+  [Restricted data](#restricted-data).
 - Rules can match `org_id` and `team_id`. The proxy sets them from the key; callers cannot.
 - Deleting a team or organization detaches revoked keys and is `FAILED_PRECONDITION` while
   active keys remain: revoke or move them first.
@@ -916,6 +945,7 @@ ktms nodes list; ktms nodes drain gpu-1
 ktms node-keys mint gpu-1 --node-id gpu-1 --allowed-cidrs 10.0.0.0/8
 ktms keys revoke billing                      # asks first; --yes for scripts
 ktms rotate-encryption
+ktms mcp-servers list                         # the MCP gateway's servers, see MCP gateway
 ktms completion zsh > "${fpath[1]}/_ktms"     # also bash and fish
 ktms mcp                                      # tools for AI assistants, see below
 ```
@@ -1040,23 +1070,54 @@ make proto-ts  # TypeScript stubs in gen/ts/
 | `tools`, `tool_choice` | Function/tool declarations with JSON Schema parameters. `tool_choice` specifies auto, required, none, or a specific named function. In non-streaming calls, arguments of `strict` tools are checked against their parameters, since not every vendor enforces strict; a call outside them is retried once and then falls back. Streamed tool calls reach the caller as they arrive and are not checked. |
 | `messages` | Chat history. Supports `MESSAGE_ROLE_USER`, `MESSAGE_ROLE_ASSISTANT`, and `MESSAGE_ROLE_TOOL` (with `tool_call_id`). User messages support multimodal `parts` (`ContentPart`: `text`, `image`, `audio`, `document`). Assistant messages can carry `tool_calls`. |
 | `max_output_tokens` | Ceiling, `0` = none. Output tokens are the expensive ones; set it. |
+| `temperature`, `top_p`, `stop`, `seed` | Sampling, passed to the model that serves the call; unset leaves its default. `temperature` 0..2, `top_p` 0..1, up to 16 non-empty `stop` sequences; other values get `INVALID_ARGUMENT`. See [Sampling](#sampling). |
 | `enable_google_search` | Only Google models declaring `google_search` can serve it. |
 | `action_id` | Free-form label for usage attribution. |
 | `model_override` | Exact model id; bypasses rules but **not** throttles. |
 | `placement` | Compute locality preference: `nodes_first`, `nodes_only`, `cloud_first`, `cloud_only`. |
+| `data_classification` | `restricted` keeps the call and the judge calls it makes on self-hosted nodes, with no cloud fallback; see [Restricted data](#restricted-data). |
 | `auto_route` | Enables smart model auto-selection; when effort is unpinned, evaluates task complexity via Judge. |
 | `effort_specified` | Signals caller explicitly pinned effort (skips dynamic Judge evaluation). |
 
 The response carries `choices`, token `usage`, `resolved_model`, `resolved_vendor`,
 `matched_rule` (empty on override), structured `details` (`Choice` objects with text, tool calls, and finish reasons),
-`cached` status, and routing metadata: `route_mode`, `placement`, `judge_score`, and `judge_model`.
+`cached` status, routing metadata: `route_mode`, `placement`, `judge_score`, and `judge_model`, and
+`ignored_parameters`: the sampling fields the resolved model did not get.
+
+### Sampling
+
+`temperature`, `top_p`, `stop` and `seed` reach the model that serves the call, as far as its API
+takes them. A field the model does not take is left out of its request rather than failing the call,
+and the response names it, as it names a value the model got changed: `ignored_parameters` in gRPC (on the first chunk of a stream), the
+`X-KTMS-Ignored-Params` header over HTTP. Fallback models are judged one by one, so the list
+describes the model that answered.
+
+| Vendor | Takes |
+| --- | --- |
+| `openai`, `azure` | All four, up to 4 `stop` sequences. Reasoning models (an id starting with `o<digit>`, `gpt-5`, `codex-mini` or `computer-use`, as a whole or after a `/`, `-` or `_`, except `gpt-5-chat`) take none: they reject `temperature`, `top_p` and `stop`, and `seed` is not confirmed for them. |
+| `groq` | All four, up to 4 `stop` sequences. |
+| `google` | All four, up to 5 `stop` sequences. |
+| `ollama`, `local` | All four. |
+| `deepseek` | `temperature`, `top_p`, `stop` (up to 16). |
+| `mistral` | `temperature` (capped at 1.5), `top_p`, `stop`. |
+| `anthropic`, Claude on `bedrock` | `stop`, without sequences of whitespace alone. Claude 4.6 and earlier also take `temperature` (capped at 1) and `top_p`; from Claude 4 on, not both: with both set, only `temperature`. Claude 4.7 and later accept only the default sampling, so they get neither. |
+| Other `bedrock` models | `temperature` (capped at 1), `top_p`, up to 4 `stop` sequences. |
+| `bedrock` application inference profiles (ARNs) | Up to 4 `stop` sequences: the ARN does not say which model is behind it. With `sampling` declared, also `temperature` (capped at 1) or `top_p`, not both, which every family takes. |
+
+A temperature above a vendor's cap is lowered to it and reported as `temperature`. When a vendor
+takes fewer stop sequences than the call has, it gets the first ones and `stop` is reported. The model is told apart
+by its id. When the id misleads, declare a capability: `no_sampling` for a model whose API rejects a
+field this table sends, `sampling` for one that takes what its vendor's table row allows, such as
+an Azure deployment of a chat model named like a reasoning one. Sampling is part of the response
+cache key. Batch results do not carry `ignored_parameters`. Over HTTP, empty stop sequences are
+dropped before the call.
 
 ### GenerateTextStream
 
 Server-streaming RPC `rpc GenerateTextStream(GenerateTextStreamRequest) returns (stream GenerateTextChunk)`.
 
 - Takes a `GenerateTextStreamRequest` containing the standard `GenerateTextRequest`.
-- Streams incremental `GenerateTextChunk` items containing `delta` (token text), `tool_call_chunks`, `resolved_model`, `resolved_vendor`, `matched_rule`, `cached`, `route_mode`, `placement`, `judge_score`, `judge_model`, and final `finish_reason` with token `usage`.
+- Streams incremental `GenerateTextChunk` items containing `delta` (token text), `tool_call_chunks`, `resolved_model`, `resolved_vendor`, `matched_rule`, `cached`, `route_mode`, `placement`, `judge_score`, `judge_model`, `ignored_parameters`, and final `finish_reason` with token `usage`.
 - **Fallback guarantee:** If upstream models fail before the first chunk is sent, the router falls back to the next model in the rule's chain. Once the first chunk is transmitted to the caller, the stream is locked to that model to guarantee integrity.
 - Usage events and daily token budgets are settled on stream completion.
 
@@ -1226,6 +1287,7 @@ Authentication is `Authorization: Bearer ktms_…` (legacy `llm_…` keys are al
 - `X-KTMS-Placement`: infrastructure placement (`nodes_first`, `nodes_only`, `cloud_first`, `cloud_only`).
 - `X-KTMS-Route-Mode`: routing mechanism (`direct`, `override`, `auto-judge`, `auto-default`, `auto-effort`).
 - `X-KTMS-Judge-Score` and `X-KTMS-Judge-Model`: evaluation confidence and judge model ID when judge evaluates task complexity.
+- `X-KTMS-Ignored-Params`: the sampling fields the serving model did not get, comma-separated (see [Sampling](#sampling)). It has no `X-LLM-Proxy-*` twin.
 
 > [!NOTE]
 > **Backwards Compatibility**: All legacy `X-LLM-Proxy-*` response headers are dual-emitted alongside `X-KTMS-*` with standard RFC 8594 `Deprecation: true`, `Sunset`, and `Warning` headers to provide seamless zero-downtime migration for existing clients.
@@ -1244,7 +1306,7 @@ The `model` parameter supports smart auto-routing and infrastructure placement:
 
 #### Infrastructure Placement Policies
 - `nodes_first` (default): Prefers registered self-hosted compute nodes (`VendorLocal`, `VendorOllama`), falling back to cloud providers if unavailable or busy.
-- `nodes_only` (aliases: `nodes`, `private`, `self_hosted`): Restricts routing strictly to self-hosted nodes. Fails if no capable node is available.
+- `nodes_only` (aliases: `nodes`, `private`, `self_hosted`): Restricts routing strictly to self-hosted nodes. Fails if no capable node is available. A preference of the request; for a guarantee that also covers the judge and holds per key or team, see [Restricted data](#restricted-data).
 - `cloud_first`: Prefers managed cloud providers, falling back to registered nodes.
 - `cloud_only`: Excludes self-hosted nodes completely.
 
@@ -1285,7 +1347,8 @@ fields: `metadata` is passed through as attributes, `user` becomes `attributes["
 | `tools`, `tool_choice` | Supported. Function declarations with JSON Schema parameters. `tool_choice` supports `"auto"`, `"none"`, `"required"`, or specific function names. |
 | `role: "tool"` | Supported. Tool responses with `tool_call_id`. |
 | Image/audio content parts | Rejected with `400`. |
-| `temperature`, `top_p`, `stop`, `seed`, `logprobs`, penalties… | Accepted and ignored. |
+| `temperature`, `top_p`, `stop`, `seed` | Passed to the model as far as it takes them; the rest is named in `X-KTMS-Ignored-Params` (see [Sampling](#sampling)). `stop` is a string or an array. |
+| `logprobs`, penalties… | Accepted and ignored. |
 
 The response is a standard `chat.completion` with `finish_reason` (`"stop"`, `"tool_calls"`, `"length"`, or `"content_filter"`) and token `usage`.
 
@@ -1317,6 +1380,126 @@ Errors use OpenAI's shape, `{"error": {"message", "type", "param", "code"}}`, an
 
 OpenAI SDKs retry 429 and 5xx automatically; for `throttled:*` and `vendor_error` you may want to
 disable that (`max_retries=0`) and handle them yourself.
+
+## Anthropic Messages API
+
+`POST /v1/messages` serves the [Anthropic Messages API](https://docs.anthropic.com/en/api/messages)
+on `HTTP_ADDR`, so Claude Code and the Anthropic SDKs run through Keystone. It is the same pipeline
+as `/v1/chat/completions`: the same keys (scope `generate`), rules, fallback, limits, guardrails,
+cache, `X-KTMS-*` headers and usage events. The model that answers may be any vendor's, and the
+answer is still a Messages response. The Messages API is [experimental](#experimental) in 1.x.
+
+Claude Code, with a KTMS key:
+
+```bash
+export ANTHROPIC_BASE_URL=http://localhost:8080
+export ANTHROPIC_AUTH_TOKEN=ktms_<your key>        # or ANTHROPIC_API_KEY
+export ANTHROPIC_MODEL=auto                        # or a registry model id
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=auto:low      # Claude Code's background calls
+claude
+```
+
+Claude Code warns once that it does not recognize the model `auto`; that is expected. It asks for
+up to 32,000-64,000 output tokens, which KTMS passes on as `max_tokens`; if a model your rules
+pick caps output lower, set `CLAUDE_CODE_MAX_OUTPUT_TOKENS` to fit it.
+
+The Anthropic SDKs need only the base URL and the key:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic(base_url="http://localhost:8080", api_key="ktms_<your key>")
+reply = client.messages.create(model="auto", max_tokens=1024,
+                               messages=[{"role": "user", "content": "Say hi in three words."}])
+print(reply.content[0].text, reply.model)   # `model` is the one that answered
+```
+
+| Request field | Support |
+| --- | --- |
+| `model` | As on chat completions: `auto`, `auto:<effort>`, `auto:<placement>`, or a registry model id. |
+| `system` | A string or `text` blocks, joined into the system instruction. |
+| `messages` | `user` and `assistant` turns with `text`, `image` and `document` blocks (`base64` or `https` `url` sources; `text` and `content` documents become text), `tool_use` and `tool_result` (text and images). `thinking`, `redacted_thinking` and server-tool blocks in assistant turns are dropped: another model cannot continue them. |
+| `tools`, `tool_choice` | Client tools with `input_schema` (the same JSON Schema subset as `response_format`); `tool_choice` `auto`, `any`, `tool` and `none`. Server tools such as `web_search` are rejected with `400`. |
+| `max_tokens` | Required, the output ceiling. |
+| `stream` | SSE events `message_start`, `ping`, `content_block_start`, `content_block_delta` (`text_delta`, `input_json_delta`), `content_block_stop`, `message_delta` and `message_stop`. `message_start` carries an input token estimate; `message_delta` carries the vendor's counts. |
+| `metadata.user_id` | `attributes["user_id"]`, as `user` on chat completions; other `metadata` keys are attributes, and `action_id` is the usage action label. Claude Code's `user_id` names a session: KTMS keeps its account (or, without one, its device) as the user and puts the session in `attributes["session_id"]`, so per-user limits and reports span sessions. |
+| `enable_cache`, `placement` | Extensions, as on chat completions; so are the `X-KTMS-Cache` and `X-KTMS-Placement` request headers (set them in Claude Code with `ANTHROPIC_CUSTOM_HEADERS`). |
+| `temperature`, `top_p`, `stop_sequences` | Passed to the model as on chat completions (see [Sampling](#sampling)). A stop sequence ends the answer with `stop_reason` `end_turn`. |
+| `top_k` | Accepted, sent to no model, and named in `X-KTMS-Ignored-Params`. |
+| `thinking`, `service_tier` | Accepted and ignored. |
+
+The key goes in `x-api-key` or `Authorization: Bearer`. The response's `stop_reason` is `end_turn`,
+`tool_use`, `max_tokens` or `refusal`, and `usage` splits `cache_read_input_tokens` and
+`cache_creation_input_tokens` out of `input_tokens`. Tool call ids are the vendor's, or `toolu_…`
+when the vendor gives none.
+
+`POST /v1/messages/count_tokens` answers with the estimate the token budgets reserve, not a
+tokenizer's count: about four characters per token, tool definitions included, a flat allowance
+per image or document (`url` sources are not fetched), and the `X-KTMS-Token-Count: estimate`
+header.
+
+Errors use the Messages shape, `{"type": "error", "error": {"type", "message"}}`, with the HTTP
+statuses of [the table above](#errors): `invalid_request_error` (400), `authentication_error`
+(401), `permission_error` (403), `not_found_error` (404), `rate_limit_error` (429, with
+`Retry-After`), `overloaded_error` (503), `timeout_error` (504) and `api_error` for the rest. The
+machine-readable reason, such as `throttled:rpm`, is the `message`. An error after the stream has
+started arrives as an `error` event.
+
+## MCP gateway
+
+Keystone is also a gateway for MCP servers. Claude Code, Cursor and other MCP clients reach the
+servers you register through Keystone, with a KTMS key: the gateway holds each server's
+credential, shows a key only the servers and tools it may use, limits calls per tool and
+accounts for every call in light-tokenmeter and Prometheus. The MCP gateway is
+[experimental](#experimental) in 1.x.
+
+- `/mcp` aggregates every server the key may use; tools are named `server__tool`.
+- `/mcp/{server}` is one server, with its tools named as the server names them.
+
+Both are Streamable HTTP on `HTTP_ADDR`, stateless, so any replica answers any request. Set
+`MCP_GATEWAY_ENABLED=false` to turn them off. Upstream servers may speak Streamable HTTP or SSE.
+Only tools are proxied; resources and prompts are not.
+
+```bash
+# register a server and give it the header the gateway sends it
+ktms mcp-servers set github --url https://api.githubcopilot.com/mcp/ --tool-rpm 60
+echo "Bearer $GITHUB_TOKEN" | ktms mcp-servers credential set github
+ktms mcp-servers tools github          # what it offers, as allowed_mcp entries
+
+# a key for the agent: the mcp scope, two tools of github and all of docs
+ktms keys mint coding-agent --scopes mcp --allowed-mcp github/create_issue,github/search_code,docs
+
+# Claude Code
+claude mcp add --transport http ktms https://ktms.example.com/mcp --header "Authorization: Bearer ktms_<key>"
+```
+
+- **Servers** are `MCPServerSpec`: `name` (1-32 of `a-z`, `0-9`, `-`), `url`, `transport`
+  (`streamable_http` or `sse`), `enabled`, `allow_private`, `timeout_ms` (one call, default
+  60 s), `max_response_bytes` (one result, default 4 MiB) and `tool_rpm`. Manage them with
+  `UpsertMCPServer` and `DeleteMCPServer`, `ktms mcp-servers`, the `mcp_servers` section of a
+  [configuration file](#configuration-as-a-file) or the console. `GetConfig` lists them.
+- **Credentials**: `SetMCPCredential` stores a header and its value (`Authorization: Bearer ...`
+  by default), encrypted with the vendor keys' keyring and re-encrypted by `RotateEncryption`.
+  The gateway adds it to every request it sends the server. It is never returned, logged, put in
+  usage events or passed to clients; `GetConfig` shows its header and fingerprint. In a file it is
+  `mcp_credentials` with `value_env`.
+- **Access**: a key needs the `mcp` scope. `allowed_mcp` on the key's policy and on its team lists
+  servers (`github`) and single tools (`github/create_issue`); empty allows any, and a tool must
+  pass both lists. Others are not listed, and calling one is the JSON-RPC error `-32003`
+  `permission_denied` (`/mcp/{server}` for a server outside the lists is HTTP 403); the upstream
+  is not called.
+- **Addresses**: a server whose host is or resolves to a loopback, private, link-local or
+  metadata address is refused at registration and at every connection, unless `allow_private` is
+  set for a server on your own network. `http://` is allowed only then. The gateway ignores
+  `HTTPS_PROXY` for these connections.
+- **Limits and failures**: above `tool_rpm` (per client key and tool, needs Redis), past the
+  timeout, with a result over `max_response_bytes` or with the server down, the call returns a
+  tool error (`isError`) that says so, for the model to act on. A server that cannot list its
+  tools is left out of `/mcp`, not the others.
+- **Accounting**: each forwarded call is a usage event with vendor `mcp`, model `server__tool`,
+  no tokens, its duration, status and `tool_call` (server, tool, result size); `user_id` comes
+  from the `X-KTMS-User` header, or is `svc:<key name>`. Metrics: `ktms_mcp_tool_calls_total`,
+  `ktms_mcp_tool_call_duration_seconds`, `ktms_mcp_response_bytes`.
 
 ## Concepts
 
@@ -1353,6 +1536,55 @@ Events are attributed to the project named by the `usage_project` attribute, fal
 API key's name. Any service implementing `RecordUsageEvent(s)` works as a sink. When
 light-tokenmeter has authentication on, give KTMS a token with the `write` scope in
 `USAGE_COLLECTOR_TOKEN`; a refused token is logged as an error and events are held and retried.
+
+### Restricted data
+
+`data_classification: restricted` keeps a call on your self-hosted nodes: no cloud vendor sees it,
+and when the nodes fail there is no fallback to the cloud. Set it on a key's policy or a team, where
+it holds for every call of the key whatever the request says:
+
+```bash
+ktms keys mint scribe --team clinic/notes --data-classification restricted
+ktms keys policy set billing --data-classification restricted   # unrestricted lifts it
+```
+
+```yaml
+organizations:
+  - name: clinic
+    teams:
+      - name: notes
+        data_classification: restricted   # every key of the team
+```
+
+`SetAPIKeyPolicy` and `UpdateTeam` replace the rest of the policy or team, but keep the current
+`data_classification` when the field is empty: a client that predates it, such as an older
+console, cannot lift a restriction by leaving it out. `unrestricted` lifts it, and the
+configuration file does that when the field is removed. `ktms keys list` shows a key's
+restriction, or its team's as `restricted (team)`.
+
+For a single call, set `data_classification: restricted` in the request (`GenerateTextRequest`,
+`data_classification` on `/v1/chat/completions`), or send the `X-KTMS-Data-Classification:
+restricted` header over HTTP or `x-ktms-data-classification` gRPC metadata, which also covers
+embeddings, judgments, speech and images. A request can restrict a call, not lift its key's or
+team's restriction; a value other than `restricted` or empty is `INVALID_ARGUMENT`. A restricted call:
+
+- routes as `placement: nodes_only`: the chain keeps the node models and is
+  `FAILED_PRECONDITION no_capable_model` without one; when every node fails it is
+  `UNAVAILABLE vendors_unavailable`. `nodes_first` and `cloud_first` become `nodes_only`,
+  `cloud_only` is `INVALID_ARGUMENT`, and a `model_override` of a cloud model is
+  `FAILED_PRECONDITION`.
+- asks the auto-effort judge and the shadow evaluation judge only on nodes, and falls back to the
+  default effort, or skips the evaluation, when no node can judge.
+- skips the response cache, so its answer cannot be served to another key.
+- for embeddings, judgments, speech and images is `FAILED_PRECONDITION` without a node model;
+  batches go to vendors' batch APIs and need a node model too, or are refused.
+- carries `data_classification: restricted` in its usage event's meta; callers cannot set that
+  attribute themselves.
+
+Nodes are models of vendor `local` (registered `ktms-node`s) and `ollama`, an Ollama endpoint you
+configure: point `ollama` models only at servers you run. Restricted data also does not cover what
+is sent outside the model chain: `LATENT_ENCODER_URL` (latent guardrails and the semantic cache)
+and MCP servers. Point the encoder at your own infrastructure.
 
 ### Semantic cache and latent guardrails
 
@@ -1462,6 +1694,10 @@ These work and are supported, but may change in a minor release. The change is t
   (`GUARDRAILS_LATENT_*`), the encoder settings (`LATENT_*`), and embeddings in judge state
   (`EmbeddingPart`, `input_embedding` over HTTP).
 - **`JudgeStream` and `EvaluateRollouts`**, and `POST /v1/decisions/rollouts` over HTTP.
+- **The MCP gateway:** `/mcp`, the `MCPServerSpec` RPCs, `allowed_mcp`, the `mcp_servers` and
+  `mcp_credentials` file sections, the `ktms_mcp_*` metrics and `ToolCall` in usage events.
+- **The Anthropic Messages API:** `POST /v1/messages`, `POST /v1/messages/count_tokens` and the
+  `X-KTMS-Token-Count` header.
 
 ### Compatibility with ktms-admin and light-tokenmeter
 
@@ -1567,17 +1803,20 @@ metrics are served next to them.
 | `ktms_tokens_total` | `vendor`, `model`, `type` (`input`, `output`) | Tokens consumed. |
 | `ktms_cache_tokens_total` | `vendor`, `model`, `type` (`read`, `write`) | The part of input read from or written to the prompt cache. |
 | `ktms_active_requests` | `vendor`, `model` | Upstream calls in flight. |
-| `ktms_throttled_total` | `reason` (`rpm`, `key_rpm`, `key_tpm`, `budget_key`, `budget_user`, `spend_key_daily`, `spend_key_monthly`, `spend_user_daily`, `spend_user_monthly`, `spend_team_monthly`, `spend_unavailable`) | Calls refused by a limit; `spend_unavailable` is Redis down with `SPEND_LIMITS_FAIL_MODE=closed`. |
+| `ktms_throttled_total` | `reason` (`rpm`, `key_rpm`, `key_tpm`, `mcp_tool_rpm`, `budget_key`, `budget_user`, `spend_key_daily`, `spend_key_monthly`, `spend_user_daily`, `spend_user_monthly`, `spend_team_monthly`, `spend_unavailable`) | Calls refused by a limit; `spend_unavailable` is Redis down with `SPEND_LIMITS_FAIL_MODE=closed`. |
 | `ktms_fallbacks_total` | `from_model`, `to_model`, `reason` | Moves down a fallback chain. |
 | `ktms_circuit_breaker_state` | `vendor`, `model` | `0` closed, `1` open, `2` half-open. |
 | `ktms_circuit_breaker_transitions_total`, `ktms_circuit_breaker_rejections_total` | `vendor`, `model` (+ `from`, `to`) | Breaker flaps and the calls it refused. |
 | `ktms_vendor_cooldowns_total` | `vendor`, `model` | Pauses started from a vendor `Retry-After`. |
-| `ktms_dependency_errors_total` | `dependency` (`redis`, `postgres`, `usage_collector`, `keyring`), `operation` | Failed calls to a dependency; `keyring` is a stored vendor key that no keyring version decrypts. |
+| `ktms_dependency_errors_total` | `dependency` (`redis`, `postgres`, `usage_collector`, `keyring`, `mcp`), `operation` | Failed calls to a dependency; `keyring` is a stored vendor key that no keyring version decrypts. |
 | `ktms_usage_events_dropped_total` | `reason` (`queue_full`, `rejected`, `shutdown`, `closed`) | Usage events that never reached light-tokenmeter. |
 | `ktms_batch_jobs_total`, `ktms_batch_items_total` | `vendor`, `state` | Batch progress. |
 | `ktms_batch_poll_duration_seconds` | `vendor` | Vendor batch polling, histogram. |
 | `ktms_shadow_requests_total`, `ktms_shadow_judge_evaluations_total`, `ktms_shadow_judge_scores` | | Shadow traffic and its judged quality. |
 | `ktms_legacy_headers_requests_total` | `header` | Clients still sending `X-LLM-Proxy-*` headers. |
+| `ktms_mcp_tool_calls_total` | `server`, `tool`, `status` (`success`, `tool_error`, `denied`, `throttled`, `timeout`, `too_large`, `upstream_error`, `cancelled`) | Tool calls through the [MCP gateway](#mcp-gateway). |
+| `ktms_mcp_tool_call_duration_seconds` | `server` | Tool call duration, histogram. |
+| `ktms_mcp_response_bytes` | `server` | Tool result size, histogram. |
 
 The `throttled` and `usage_events_dropped` reasons are exported at 0 from startup, so `increase()`
 catches the first event after a restart. Suggested alerts (tune thresholds to your traffic; `job`

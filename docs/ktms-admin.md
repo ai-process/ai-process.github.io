@@ -232,7 +232,7 @@ The console shows only the pages whose backend you configured.
 | You set | You get |
 | --- | --- |
 | `TOKENMETER_URL` (+ `TOKENMETER_TOKEN` when light-tokenmeter has auth on) | **Usage** page. Nothing else. |
-| `KTMS_ADDR` + `KTMS_ADMIN_KEY` | **Models, Rules, Limits, Keys, Tenants, Team, Nodes, Playground, Judge**. |
+| `KTMS_ADDR` + `KTMS_ADMIN_KEY` | **Models, Rules, Limits, Keys, Tenants, Team, Nodes, MCP servers, Playground, Judge**. |
 | both | Everything, plus **estimated cost** on the usage page (tokens × the prices on your models; estimates use standard in/out prices and do not account for peak or batch rates). |
 
 The sidebar shows a green or red dot per backend, so a wrong address or a revoked key is visible at once:
@@ -331,6 +331,12 @@ encryption key version.
 shows its spend this month against the budget and its keys.
 
 **Nodes.** Local GPU nodes with state, queue, VRAM and speed, refreshed every 15 seconds, and their keys.
+
+**MCP servers** (KTMS 1.4 or later). The servers Keystone's [MCP gateway](/docs/ktms/#mcp-gateway)
+proxies at `/mcp`: add, edit and remove them, set or remove the header each one is sent (write-only,
+like vendor credentials; only its fingerprint shows), and list a server's tools as the entries a key's
+or team's *Allowed MCP* takes. Keys get the *Use MCP tools* access and an *Allowed MCP* list in their
+policy; teams get one too.
 
 **Playground.** Send a prompt or multi-turn conversation through the same routing your clients use, with SSE streaming, tool definitions, interactive tool result responses, effort selection, and attributes. The call is attributed to `console.playground` and your e-mail.
 
