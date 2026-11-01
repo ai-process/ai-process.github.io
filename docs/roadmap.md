@@ -24,26 +24,12 @@ Every 1.x release is additive: new RPCs, fields, endpoints and settings. Anythin
 
 ## Now
 
-### Agent tools: MCP gateway
-
-- A registry of MCP servers (Streamable HTTP and SSE), proxied through Keystone at `/mcp`.
-- One endpoint that aggregates several servers, with tools namespaced per server.
-- Access to servers and individual tools per client key and team, like `allowed_models` today.
-- Upstream credentials stored encrypted and injected by the gateway, never handed to clients.
-- Tool calls in light-tokenmeter and Prometheus, and limits per tool.
-- Managed the same way as models: declarative YAML, Admin API, CLI and the console.
-
 ### Coding agents and API
 
-- Anthropic Messages API at `/v1/messages`, so Claude Code runs through KTMS with
-  `ANTHROPIC_BASE_URL` and `model: "auto"`.
 - OpenAI Responses API at `/v1/responses` for Codex CLI and the Agents SDK.
-- `temperature`, `top_p`, `stop` and `seed` passed through to the chosen model.
 
 ### Routing and providers
 
-- `data_classification: restricted`: requests stay on your own GPU nodes, with no fallback to a
-  cloud vendor.
 - A pool of keys per vendor, spread across requests and rotated around vendor rate limits.
 - An explicit `openai_compatible` vendor for any OpenAI-compatible endpoint.
 
@@ -101,6 +87,8 @@ Every 1.x release is additive: new RPCs, fields, endpoints and settings. Anythin
 - Hedged requests for streaming: a second attempt when the first is slow to start.
 - A corrective retry when a response fails its JSON schema.
 - Cloud routing strategies by latency, load and price.
+- A budget per shadow experiment that covers the candidate, the judge and retries: when it runs
+  out, callers still get answers, the shadow call is skipped and the skip shows in the metrics.
 
 ### Documentation
 

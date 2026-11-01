@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/ai-process/ktms",
-      "revision": "cff1b7b02f48ef60e0f94124f1116081a3de7bae"
+      "revision": "8095e435f40456ea7286224f27bfb40e34175613"
     }
   },
   "components": [
@@ -15,7 +15,7 @@
       "id": "clients",
       "type": "external",
       "label": "Client Services",
-      "sublabel": "gRPC / OpenAI SDKs",
+      "sublabel": "gRPC · OpenAI · Anthropic",
       "pos": [
         40,
         200
@@ -88,6 +88,12 @@
           "line": 46,
           "end_line": 60,
           "label": "OpenAI HTTP /v1"
+        },
+        {
+          "path": "internal/server/anthropic.go",
+          "line": 1,
+          "end_line": 40,
+          "label": "Anthropic Messages /v1/messages"
         }
       ]
     },
@@ -259,6 +265,85 @@
           "label": "Usage collector client"
         }
       ]
+    },
+    {
+      "id": "agents",
+      "type": "external",
+      "label": "Coding Agents",
+      "sublabel": "Claude Code · Cursor",
+      "pos": [
+        40,
+        620
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/mcpgw/gateway.go",
+          "line": 1,
+          "end_line": 40,
+          "label": "Clients connect with a KTMS key"
+        },
+        {
+          "path": "internal/server/anthropic.go",
+          "line": 1,
+          "end_line": 40,
+          "label": "Messages API for Claude Code"
+        }
+      ]
+    },
+    {
+      "id": "mcpgw",
+      "type": "security",
+      "label": "MCP Gateway",
+      "sublabel": "/mcp · server__tool",
+      "tag": "scope mcp",
+      "pos": [
+        260,
+        620
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/mcpgw/gateway.go",
+          "line": 1,
+          "end_line": 120,
+          "label": "Access, limits, accounting"
+        },
+        {
+          "path": "internal/mcpgw/upstream.go",
+          "line": 1,
+          "end_line": 60,
+          "label": "Shared upstream sessions"
+        }
+      ]
+    },
+    {
+      "id": "mcpservers",
+      "type": "cloud",
+      "label": "MCP Servers",
+      "sublabel": "Streamable HTTP / SSE",
+      "pos": [
+        810,
+        620
+      ],
+      "size": [
+        300,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/registry/mcp.go",
+          "line": 1,
+          "end_line": 40,
+          "label": "Registered servers"
+        }
+      ]
     }
   ],
   "boundaries": [
@@ -271,7 +356,8 @@
         "router",
         "redis",
         "postgres",
-        "poller"
+        "poller",
+        "mcpgw"
       ]
     }
   ],
@@ -362,6 +448,39 @@
       "variant": "security",
       "fromSide": "right",
       "toSide": "left"
+    },
+    {
+      "id": "agents-mcp",
+      "from": "agents",
+      "to": "mcpgw",
+      "label": "MCP / HTTP",
+      "variant": "emphasis"
+    },
+    {
+      "id": "mcp-servers",
+      "from": "mcpgw",
+      "to": "mcpservers",
+      "label": "tools/call + credential",
+      "variant": "emphasis"
+    },
+    {
+      "id": "agents-messages",
+      "from": "agents",
+      "to": "ingress",
+      "label": "/v1/messages",
+      "variant": "emphasis",
+      "via": [
+        [
+          250,
+          652
+        ],
+        [
+          250,
+          232
+        ]
+      ],
+      "fromSide": "right",
+      "toSide": "left"
     }
   ],
   "cards": [
@@ -390,6 +509,15 @@
         "ktms CLI keeps the configuration as a file: plan, then apply",
         "ktms mcp offers read tools by default; changes go config_plan → config_apply",
         "ExplainRoute dry-runs routing on the gateway's own code; admin:read keys only read"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Coding Agents",
+      "items": [
+        "Claude Code and the Anthropic SDKs call /v1/messages, answered by any vendor's model",
+        "MCP clients reach registered servers at /mcp; allowed_mcp hides the rest",
+        "MCP credentials stay encrypted in Postgres; every call is limited and metered"
       ]
     }
   ]

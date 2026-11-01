@@ -104,6 +104,22 @@ HTTP: keep them on localhost, or put a TLS proxy in front. A client entry:
                             "headers": { "Authorization": "Bearer ${KTMS_MCP_TOKEN}" } } } }
 ```
 
+## MCP gateway
+
+`ktms mcp` manages Keystone. To give assistants and agents *other* MCP servers (GitHub, a docs
+search, your own), register them in Keystone's MCP gateway instead: clients then connect to
+Keystone's `/mcp` with a KTMS key of the `mcp` scope, see only the servers and tools that key may
+use (`allowed_mcp`), and never see the servers' credentials. Every tool call is limited per key and
+tool and counted in light-tokenmeter (`tool_call` on the usage event) and Prometheus.
+
+```bash
+ktms mcp-servers set github --url https://api.githubcopilot.com/mcp/
+echo "Bearer $GITHUB_TOKEN" | ktms mcp-servers credential set github
+claude mcp add --transport http ktms-tools https://ktms.example.com/mcp --header "Authorization: Bearer ktms_<mcp key>"
+```
+
+The gateway is experimental from Keystone 1.4 on; see [MCP gateway](/docs/ktms/#mcp-gateway).
+
 ## Security
 
 - The servers hold the keys; tool results never contain them, except a new client key once.
