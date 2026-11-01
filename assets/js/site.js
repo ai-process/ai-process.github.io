@@ -49,23 +49,44 @@
     });
   });
 
-  // Hero terminal: type a request, then print what KTMS answered.
+  // Hero terminal: install once, then type requests and print what Keystone answered.
   var term = document.querySelector("[data-terminal]");
   if (term) {
+    var version = "1.4.0";
+    var install = {
+      cmd: "curl -fsSL https://ai-process.dev/install.sh | sh",
+      out: [
+        "==> Checking Docker",
+        "Keystone {v}, files in ~/ktms",
+        "Paste an OpenAI, Anthropic or Gemini API key: ••••••••",
+        "",
+        "==> Starting Keystone, Postgres and Redis",
+        ' <span class="ok">✔</span> keystone-db-1     Healthy',
+        ' <span class="ok">✔</span> keystone-ktms-1   Started',
+        "",
+        '<span class="ok">Keystone is running on http://localhost:8080</span>',
+        '<span class="c"># about 10 seconds with the images cached</span>'
+      ]
+    };
+    var request = function (model) {
+      return "curl localhost:8080/v1/chat/completions \\\n" +
+        '    -H "Authorization: Bearer ktms_local_…" \\\n' +
+        "    -d '{\"model\":\"" + model + "\",\"messages\":[…]}'";
+    };
     var scenes = [
       {
-        model: "auto:high",
+        cmd: request("auto:high"),
         out: [
           '<span class="ok">HTTP/1.1 200 OK</span>',
           '<span class="h">X-KTMS-Vendor:</span> anthropic',
-          '<span class="h">X-KTMS-Rule:</span> hard-reasoning',
+          '<span class="h">X-KTMS-Rule:</span> default-high',
           '<span class="h">X-KTMS-Placement:</span> cloud_first',
           '{"choices":[{"message":{"content":"Here is the plan…"}}]}',
           '<span class="c"># effort HIGH → strongest model in the chain</span>'
         ]
       },
       {
-        model: "auto:low",
+        cmd: request("auto:low"),
         out: [
           '<span class="ok">HTTP/1.1 200 OK</span>',
           '<span class="h">X-KTMS-Vendor:</span> local',
@@ -76,11 +97,11 @@
         ]
       },
       {
-        model: "auto:medium",
+        cmd: request("auto:medium"),
         out: [
           '<span class="ok">HTTP/1.1 200 OK</span>',
           '<span class="h">X-KTMS-Vendor:</span> gemini',
-          '<span class="h">X-KTMS-Rule:</span> default',
+          '<span class="h">X-KTMS-Rule:</span> default-medium',
           '<span class="h">X-KTMS-Placement:</span> cloud_first',
           '{"choices":[{"message":{"content":"Summary: …"}}]}',
           '<span class="c"># first vendor returned 503 → fell back, caller never noticed</span>'
@@ -88,38 +109,64 @@
       }
     ];
     var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var cmd = function (model) {
-      return "curl :8080/v1/chat/completions \\\n" +
-        '    -H "Authorization: Bearer ktms_…" \\\n' +
-        "    -d '{\"model\":\"" + model + "\",\"messages\":[…]}'";
-    };
     var esc = function (s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); };
     var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    var head = '<span class="p">$</span> ';
+
+    var show = async function (s, fast) {
+      for (var c = 0; c <= s.cmd.length; c++) {
+        term.innerHTML = head + esc(s.cmd.slice(0, c)) + '<span class="cursor"></span>';
+        await wait(s.cmd[c - 1] === "\n" ? 120 : 18 + Math.random() * 22);
+      }
+      await wait(380);
+      var shown = head + esc(s.cmd) + "\n\n";
+      for (var l = 0; l < s.out.length; l++) {
+        shown += s.out[l].replace("{v}", version) + "\n";
+        term.innerHTML = shown + '<span class="cursor"></span>';
+        await wait(fast ? (l === 0 ? 260 : 110) : (l === 4 ? 900 : 330));
+      }
+      await wait(3200);
+    };
 
     var play = async function () {
-      for (var i = 0; ; i = (i + 1) % scenes.length) {
-        var s = scenes[i];
-        var text = cmd(s.model);
-        var head = '<span class="p">$</span> ';
-        if (reduced) {
-          term.innerHTML = head + esc(text) + "\n\n" + s.out.join("\n");
-          return;
-        }
-        for (var c = 0; c <= text.length; c++) {
-          term.innerHTML = head + esc(text.slice(0, c)) + '<span class="cursor"></span>';
-          await wait(text[c - 1] === "\n" ? 120 : 18 + Math.random() * 22);
-        }
-        await wait(380);
-        var shown = head + esc(text) + "\n\n";
-        for (var l = 0; l < s.out.length; l++) {
-          shown += s.out[l] + "\n";
-          term.innerHTML = shown + '<span class="cursor"></span>';
-          await wait(l === 0 ? 260 : 110);
-        }
-        await wait(3200);
+      if (reduced) {
+        term.innerHTML = head + esc(install.cmd) + "\n\n" + install.out.join("\n").replace("{v}", version);
+        return;
       }
+      await show(install, false);
+      for (var i = 0; ; i = (i + 1) % scenes.length) await show(scenes[i], true);
     };
+    if (window.fetch) {
+      fetch("https://api.github.com/repos/ai-process/ktms/releases/latest").then(function (r) {
+        return r.ok ? r.json() : null;
+      }).then(function (j) {
+        if (j && j.tag_name) version = j.tag_name.replace(/^v/, "");
+      }).catch(function () {});
+    }
     play();
+  }
+
+  // Install box: switch between ways to install and copy the command.
+  var inst = document.querySelector("[data-install]");
+  if (inst) {
+    var cmdEl = inst.querySelector("[data-install-cmd]");
+    var labelEl = inst.querySelector("[data-install-label]");
+    var ways = inst.querySelectorAll("button[data-cmd]");
+    ways.forEach(function (b) {
+      b.addEventListener("click", function () {
+        ways.forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
+        cmdEl.textContent = b.dataset.cmd;
+        labelEl.textContent = b.dataset.label;
+      });
+    });
+    var copyBtn = inst.querySelector("[data-install-copy]");
+    copyBtn.addEventListener("click", function () {
+      navigator.clipboard.writeText(cmdEl.textContent).then(function () {
+        copyBtn.textContent = "Copied";
+        setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500);
+        if (window.gtag) window.gtag("event", "copy_install_command", { method: cmdEl.textContent.split(" ")[0] });
+      });
+    });
   }
 
   // Latest posts from the blog feed; the card works without them.

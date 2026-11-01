@@ -9,8 +9,24 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
       <span class="pill"><span class="dot"></span>Open source · Apache 2.0 · Written in Go</span>
       <h1>One switchboard for <span class="grad-text">every LLM</span> you run</h1>
       <p class="lead">Keystone. The Model Switchboard. (KTMS) is a self-hosted LLM gateway: it keeps your vendor keys, routes each request by effort, falls back when a provider fails and caps spend. light-tokenmeter shows who burns the tokens. ktms-admin puts it all in your browser.</p>
+      <div class="install" data-install>
+        <div class="install-label" data-install-label>Try it on your machine · needs Docker · about a minute</div>
+        <div class="install-box">
+          <span class="install-prompt">$</span>
+          <code data-install-cmd>curl -fsSL https://ai-process.dev/install.sh | sh</code>
+          <button class="install-copy" data-install-copy aria-label="Copy the command">Copy</button>
+        </div>
+        <div class="install-ways" role="tablist" aria-label="Ways to install">
+          <button role="tab" aria-selected="true" data-cmd="curl -fsSL https://ai-process.dev/install.sh | sh" data-label="Try it on your machine · needs Docker · about a minute">Docker</button>
+          <button role="tab" aria-selected="false" data-cmd="claude plugin marketplace add ai-process/ktms &amp;&amp; claude plugin install ktms@ai-process" data-label="Claude Code · then run /ktms:deploy and your assistant sets up the stack">Claude Code</button>
+          <button role="tab" aria-selected="false" data-cmd="go install github.com/ai-process/ktms/cmd/ktms@latest" data-label="Command-line tool · contexts, config as code, route explain">CLI</button>
+          <a href="/docs/ktms/#helm-chart-kubernetes">Kubernetes · Helm ↗</a>
+          <a href="/docs/prompts/deploy-stack/">Cursor · Codex · Copilot ↗</a>
+          <a href="/docs/quickstart-local-node/">GPU node ↗</a>
+        </div>
+      </div>
       <div class="hero-cta">
-        <a class="btn btn-primary" href="#quickstart">Get started in 1 minute</a>
+        <a class="btn btn-primary" href="#quickstart">See it route a request</a>
         <a class="btn btn-ghost" href="/docs/">Read the docs</a>
       </div>
       <div class="hero-meta">
@@ -19,8 +35,8 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
         <span><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>amd64 &amp; arm64 images</span>
       </div>
     </div>
-    <div class="terminal reveal" aria-label="Example requests through KTMS">
-      <div class="terminal-bar"><i></i><i></i><i></i><span>~/your-service</span></div>
+    <div class="terminal reveal" aria-label="Installing Keystone and sending requests through it">
+      <div class="terminal-bar"><i></i><i></i><i></i><span>~</span></div>
       <div class="terminal-body" data-terminal></div>
     </div>
   </div>
@@ -245,37 +261,38 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
   <div class="container qs">
     <div class="reveal">
       <span class="eyebrow">Quick start</span>
-      <h2>From <code style="font-size:.8em">git clone</code> to a <span class="grad-text">routed request</span></h2>
+      <h2>One command to a <span class="grad-text">routed request</span></h2>
       <div class="steps">
-        <div class="step"><div><h4>Start the stack</h4><p>Docker Compose brings up KTMS with Postgres and Redis, seeds default models and rules and a dev key.</p></div></div>
+        <div class="step"><div><h4>Start the stack</h4><p>The installer runs Keystone with Postgres and Redis from published images, generates its keys, asks for a vendor key and prints your first request. No clone, no build.</p></div></div>
         <div class="step"><div><h4>Point your SDK at it</h4><p>Change <code>base_url</code> and use <code>model: "auto"</code>. Routing, fallbacks and limits come for free.</p></div></div>
         <div class="step"><div><h4>Go to production</h4><p>Docker images for amd64 and arm64, a Helm chart and a production checklist are in the <a href="/docs/ktms/">KTMS docs</a>.</p></div></div>
       </div>
     </div>
     <div class="code-tabs reveal d1" data-tabs>
       <div class="tab-bar" role="tablist">
-        <button role="tab" aria-selected="true" data-tab="0">Docker Compose</button>
+        <button role="tab" aria-selected="true" data-tab="0">Install</button>
         <button role="tab" aria-selected="false" data-tab="1">curl</button>
         <button role="tab" aria-selected="false" data-tab="2">Python</button>
         <button class="copy" data-copy>Copy</button>
       </div>
-<pre data-panel="0"><span class="k">git</span> clone https://github.com/ai-process/ktms.git
-<span class="k">cd</span> ktms
+<pre data-panel="0"><span class="k">curl</span> -fsSL https://ai-process.dev/install.sh | <span class="k">sh</span>
 
-<span class="c"># any of OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY</span>
-OPENAI_API_KEY=sk-... <span class="k">docker</span> compose up -d --build
+<span class="c"># or pass the vendor key up front, no prompt:</span>
+OPENAI_API_KEY=sk-... <span class="k">sh</span> -c <span class="s">"$(curl -fsSL https://ai-process.dev/install.sh)"</span>
 
-<span class="k">curl</span> -s http://localhost:8080/readyz   <span class="c"># {"status":"ready"}</span></pre>
+<span class="c"># options: --port, --version, --dir, --uninstall</span>
+<span class="k">curl</span> -fsSL https://ai-process.dev/install.sh | <span class="k">sh</span> -s -- --help</pre>
 <pre data-panel="1" hidden><span class="k">curl</span> -s http://localhost:8080/v1/chat/completions \
-  -H <span class="s">"Authorization: Bearer ktms_dev_default_key"</span> \
+  -H <span class="s">"Authorization: Bearer $KTMS_CLIENT_KEY"</span> \
   -H <span class="s">"Content-Type: application/json"</span> \
   -d <span class="s">'{"model":"auto","messages":[{"role":"user","content":"Say hi in three words."}]}'</span>
 
+<span class="c"># the installer prints your key; it is also in ~/ktms/.env</span>
 <span class="c"># response headers tell you who answered and why:</span>
 <span class="c"># X-KTMS-Vendor, X-KTMS-Rule, X-KTMS-Placement</span></pre>
 <pre data-panel="2" hidden><span class="k">from</span> openai <span class="k">import</span> OpenAI
 
-client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>, api_key=<span class="s">"ktms_dev_default_key"</span>)
+client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>, api_key=<span class="s">"ktms_local_…"</span>)
 response = client.chat.completions.create(
     model=<span class="s">"auto"</span>,  <span class="c"># or "auto:low", "auto:high"</span>
     messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"Say hi in three words."</span>}],
