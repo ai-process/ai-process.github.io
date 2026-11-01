@@ -4,6 +4,9 @@ on:
   push:
     branches: ["main"]
   workflow_dispatch:
+  # Picks up a new install.sh from ai-process/ktms without a site change.
+  schedule:
+    - cron: "17 5 * * *"
 
 permissions:
   contents: read
@@ -20,6 +23,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Fetch install.sh from ai-process/ktms
+        run: |
+          if curl -fsSL https://raw.githubusercontent.com/ai-process/ktms/main/scripts/install.sh -o install.sh.new && head -n 1 install.sh.new | grep -q '^#!/bin/sh'; then
+            mv install.sh.new install.sh
+          else
+            rm -f install.sh.new
+            echo "::warning::could not fetch install.sh; serving the committed copy"
+          fi
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Build with Jekyll

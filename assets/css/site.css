@@ -101,6 +101,19 @@ code, pre, kbd { font-family: var(--mono); }
 .hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: center; }
 .hero h1 { font-size: clamp(40px, 5.6vw, 66px); line-height: 1.04; letter-spacing: -0.035em; margin: 22px 0 20px; font-weight: 800; }
 .hero .lead { font-size: 19px; color: var(--muted); max-width: 540px; margin: 0 0 32px; }
+.hero .lead { margin-bottom: 26px; }
+.hero-grid > * { min-width: 0; }
+.install { margin: 0 0 26px; max-width: 560px; }
+.install-label { color: var(--dim); font-size: 13.5px; margin-bottom: 8px; }
+.install-box { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 16px; border-radius: 14px; background: #120c07; border: 1px solid rgba(255,154,31,.45); box-shadow: 0 14px 40px -18px rgba(255,120,20,.55); font-family: var(--mono); font-size: 14px; }
+.install-prompt { color: var(--amber); flex: none; }
+.install-box code { flex: 1; min-width: 0; color: var(--text); white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+.install-box code::-webkit-scrollbar { display: none; }
+.install-copy { flex: none; background: var(--grad); color: #1d0f02; border: 0; border-radius: 9px; padding: 8px 14px; font: 700 13px var(--font); cursor: pointer; }
+.install-ways { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.install-ways button, .install-ways a { font: 600 12.5px var(--font); padding: 6px 11px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,.03); color: var(--muted); cursor: pointer; }
+.install-ways button:hover, .install-ways a:hover { color: var(--text); border-color: var(--border-strong); }
+.install-ways button[aria-selected="true"] { color: var(--yellow); border-color: rgba(255,169,40,.55); background: rgba(255,169,40,.1); }
 .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; }
 .hero-meta { display: flex; gap: 22px; margin-top: 30px; color: var(--dim); font-size: 14px; flex-wrap: wrap; }
 .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
