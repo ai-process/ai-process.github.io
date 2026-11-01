@@ -4,7 +4,7 @@ on:
   push:
     branches: ["main"]
   workflow_dispatch:
-  # Picks up a new install.sh from ai-process/ktms without a site change.
+  # Picks up a new install.sh and fresh adoption numbers without a site change.
   schedule:
     - cron: "17 5 * * *"
 
@@ -31,6 +31,8 @@ jobs:
             rm -f install.sh.new
             echo "::warning::could not fetch install.sh; serving the committed copy"
           fi
+      - name: Refresh adoption numbers
+        run: ./scripts/fetch-stats.sh
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Build with Jekyll

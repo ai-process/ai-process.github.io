@@ -49,25 +49,9 @@
     });
   });
 
-  // Hero terminal: install once, then type requests and print what Keystone answered.
+  // Demo terminal: type requests and print what Keystone answered.
   var term = document.querySelector("[data-terminal]");
   if (term) {
-    var version = "1.4.0";
-    var install = {
-      cmd: "curl -fsSL https://ai-process.dev/install.sh | sh",
-      out: [
-        "==> Checking Docker",
-        "Keystone {v}, files in ~/ktms",
-        "Paste an OpenAI, Anthropic or Gemini API key: ••••••••",
-        "",
-        "==> Starting Keystone, Postgres and Redis",
-        ' <span class="ok">✔</span> keystone-db-1     Healthy',
-        ' <span class="ok">✔</span> keystone-ktms-1   Started',
-        "",
-        '<span class="ok">Keystone is running on http://localhost:8080</span>',
-        '<span class="c"># about 10 seconds with the images cached</span>'
-      ]
-    };
     var request = function (model) {
       return "curl localhost:8080/v1/chat/completions \\\n" +
         '    -H "Authorization: Bearer ktms_local_…" \\\n' +
@@ -121,7 +105,7 @@
       await wait(380);
       var shown = head + esc(s.cmd) + "\n\n";
       for (var l = 0; l < s.out.length; l++) {
-        shown += s.out[l].replace("{v}", version) + "\n";
+        shown += s.out[l] + "\n";
         term.innerHTML = shown + '<span class="cursor"></span>';
         await wait(fast ? (l === 0 ? 260 : 110) : (l === 4 ? 900 : 330));
       }
@@ -130,44 +114,46 @@
 
     var play = async function () {
       if (reduced) {
-        term.innerHTML = head + esc(install.cmd) + "\n\n" + install.out.join("\n").replace("{v}", version);
+        term.innerHTML = head + esc(scenes[0].cmd) + "\n\n" + scenes[0].out.join("\n");
         return;
       }
-      await show(install, false);
       for (var i = 0; ; i = (i + 1) % scenes.length) await show(scenes[i], true);
     };
-    if (window.fetch) {
-      fetch("https://api.github.com/repos/ai-process/ktms/releases/latest").then(function (r) {
-        return r.ok ? r.json() : null;
-      }).then(function (j) {
-        if (j && j.tag_name) version = j.tag_name.replace(/^v/, "");
-      }).catch(function () {});
+    // The demo sits below the fold: start typing when it comes into view.
+    if ("IntersectionObserver" in window) {
+      var started = false;
+      new IntersectionObserver(function (entries, obs) {
+        if (started || !entries[0].isIntersecting) return;
+        started = true;
+        obs.disconnect();
+        play();
+      }, { threshold: 0.3 }).observe(term);
+    } else {
+      play();
     }
-    play();
   }
 
-  // Install box: switch between ways to install and copy the command.
+  // Install card: tabs switch the way to install; Copy takes the command without the prompt.
   var inst = document.querySelector("[data-install]");
   if (inst) {
-    var cmdEl = inst.querySelector("[data-install-cmd]");
-    var labelEl = inst.querySelector("[data-install-label]");
-    var ways = inst.querySelectorAll("button[data-cmd]");
-    ways.forEach(function (b) {
-      b.addEventListener("click", function () {
-        ways.forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
-        cmdEl.textContent = b.dataset.cmd;
-        labelEl.textContent = b.dataset.label;
-      });
-    });
-    var copyBtn = inst.querySelector("[data-install-copy]");
-    copyBtn.addEventListener("click", function () {
-      navigator.clipboard.writeText(cmdEl.textContent).then(function () {
-        copyBtn.textContent = "Copied";
-        setTimeout(function () { copyBtn.textContent = "Copy"; }, 1500);
-        if (window.gtag) window.gtag("event", "copy_install_command", { method: cmdEl.textContent.split(" ")[0] });
+    var tabs = inst.querySelectorAll("[data-way]");
+    tabs.forEach(function (t) {
+      t.addEventListener("click", function () {
+        tabs.forEach(function (x) { x.setAttribute("aria-selected", String(x === t)); });
+        inst.querySelectorAll("[data-panel-way]").forEach(function (p) { p.hidden = p.dataset.panelWay !== t.dataset.way; });
       });
     });
   }
+  document.querySelectorAll("[data-copy-cmd]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var code = btn.parentNode.querySelector("code").textContent.replace(/^\$\s*/, "");
+      navigator.clipboard.writeText(code).then(function () {
+        btn.textContent = "Copied";
+        setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+        if (window.gtag) window.gtag("event", "copy_install_command", { method: code.split(" ")[0] });
+      });
+    });
+  });
 
   // Latest posts from the blog feed; the card works without them.
   var list = document.querySelector("[data-blog-posts]");

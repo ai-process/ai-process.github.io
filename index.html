@@ -9,24 +9,8 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
       <span class="pill"><span class="dot"></span>Open source · Apache 2.0 · Written in Go</span>
       <h1>One switchboard for <span class="grad-text">every LLM</span> you run</h1>
       <p class="lead">Keystone. The Model Switchboard. (KTMS) is a self-hosted LLM gateway: it keeps your vendor keys, routes each request by effort, falls back when a provider fails and caps spend. light-tokenmeter shows who burns the tokens. ktms-admin puts it all in your browser.</p>
-      <div class="install" data-install>
-        <div class="install-label" data-install-label>Try it on your machine · needs Docker · about a minute</div>
-        <div class="install-box">
-          <span class="install-prompt">$</span>
-          <code data-install-cmd>curl -fsSL https://ai-process.dev/install.sh | sh</code>
-          <button class="install-copy" data-install-copy aria-label="Copy the command">Copy</button>
-        </div>
-        <div class="install-ways" role="tablist" aria-label="Ways to install">
-          <button role="tab" aria-selected="true" data-cmd="curl -fsSL https://ai-process.dev/install.sh | sh" data-label="Try it on your machine · needs Docker · about a minute">Docker</button>
-          <button role="tab" aria-selected="false" data-cmd="claude plugin marketplace add ai-process/ktms &amp;&amp; claude plugin install ktms@ai-process" data-label="Claude Code · then run /ktms:deploy and your assistant sets up the stack">Claude Code</button>
-          <button role="tab" aria-selected="false" data-cmd="go install github.com/ai-process/ktms/cmd/ktms@latest" data-label="Command-line tool · contexts, config as code, route explain">CLI</button>
-          <a href="/docs/ktms/#helm-chart-kubernetes">Kubernetes · Helm ↗</a>
-          <a href="/docs/prompts/deploy-stack/">Cursor · Codex · Copilot ↗</a>
-          <a href="/docs/quickstart-local-node/">GPU node ↗</a>
-        </div>
-      </div>
       <div class="hero-cta">
-        <a class="btn btn-primary" href="#quickstart">See it route a request</a>
+        <a class="btn btn-primary" href="#demo">See it route a request</a>
         <a class="btn btn-ghost" href="/docs/">Read the docs</a>
       </div>
       <div class="hero-meta">
@@ -35,9 +19,67 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
         <span><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>amd64 &amp; arm64 images</span>
       </div>
     </div>
-    <div class="terminal reveal" aria-label="Installing Keystone and sending requests through it">
-      <div class="terminal-bar"><i></i><i></i><i></i><span>~</span></div>
-      <div class="terminal-body" data-terminal></div>
+    <div class="install-card" data-install>
+      <div class="install-head">
+        <b>Try Keystone in a minute</b>
+        <span>free · Apache 2.0</span>
+      </div>
+      <div class="install-tabs" role="tablist" aria-label="Ways to install">
+        <button role="tab" aria-selected="true" data-way="docker">Docker</button>
+        <button role="tab" aria-selected="false" data-way="claude">Claude Code</button>
+        <button role="tab" aria-selected="false" data-way="k8s">Kubernetes</button>
+        <button role="tab" aria-selected="false" data-way="assistant">Cursor · Codex</button>
+        <button role="tab" aria-selected="false" data-way="node">GPU node</button>
+        <button role="tab" aria-selected="false" data-way="cli">CLI</button>
+      </div>
+      <div class="install-panel" data-panel-way="docker">
+        <div class="install-cmd"><code><span class="p">$</span> curl -fsSL <span class="nw">https://ai-process.dev/install.sh</span> | sh</code><button class="install-copy" data-copy-cmd>Copy</button></div>
+        <ul class="install-steps">
+          <li>Runs Keystone, Postgres and Redis from published images: no clone, no build</li>
+          <li>Generates its keys and asks for one OpenAI, Anthropic or Gemini key</li>
+          <li>Prints your first request. Needs Docker; <code>--uninstall</code> removes it all</li>
+        </ul>
+      </div>
+      <div class="install-panel" data-panel-way="claude" hidden>
+        <div class="install-cmd"><code><span class="p">$</span> claude plugin marketplace add ai-process/ktms &amp;&amp; claude plugin install ktms@ai-process</code><button class="install-copy" data-copy-cmd>Copy</button></div>
+        <ul class="install-steps">
+          <li><code>/ktms:assess</code> looks at your system and says where Keystone fits</li>
+          <li><code>/ktms:deploy</code> writes Compose or Helm for the whole stack</li>
+          <li><code>/ktms:integrate</code> moves a service's LLM calls onto it. <a href="/docs/skills/">All skills →</a></li>
+        </ul>
+      </div>
+      <div class="install-panel" data-panel-way="k8s" hidden>
+        <div class="install-cmd"><code><span class="p">$</span> helm install ktms oci://ghcr.io/ai-process/charts/ktms --set secrets.existingSecret=ktms-secrets</code><button class="install-copy" data-copy-cmd>Copy</button></div>
+        <ul class="install-steps">
+          <li>The chart is published with every release and runs the image of the same version</li>
+          <li>Create the <code>ktms-secrets</code> secret first: database URL, keyring, admin key</li>
+          <li><a href="/docs/ktms/#helm-chart-kubernetes">Helm guide and production checklist →</a></li>
+        </ul>
+      </div>
+      <div class="install-panel" data-panel-way="assistant" hidden>
+        <div class="install-cmd"><code>Open “Deploy the stack”, copy the prompt, paste it into your assistant</code><a class="install-copy" href="/docs/prompts/deploy-stack/">Open</a></div>
+        <ul class="install-steps">
+          <li>Ready prompts for Cursor, Codex, Copilot or any chat assistant</li>
+          <li>Deploy, integrate a service, configure routing, add a GPU node, migrate</li>
+          <li><a href="/docs/prompts/">All prompts →</a></li>
+        </ul>
+      </div>
+      <div class="install-panel" data-panel-way="node" hidden>
+        <div class="install-cmd"><code><span class="p">$</span> curl -fsSL <span class="nw">https://raw.githubusercontent.com/ai-process/ktms/main/scripts/install-node.sh</span> | sh -s -- --proxy ktms.example.com --node-id gpu-1 --model qwen3:8b</code><button class="install-copy" data-copy-cmd>Copy</button></div>
+        <ul class="install-steps">
+          <li>Runs Ollama and the node agent on a Mac or a GPU box as user services</li>
+          <li>Keystone sends work there first and falls back to the cloud when it is busy</li>
+          <li><a href="/docs/quickstart-local-node/">Node quick start →</a></li>
+        </ul>
+      </div>
+      <div class="install-panel" data-panel-way="cli" hidden>
+        <div class="install-cmd"><code><span class="p">$</span> go install github.com/ai-process/ktms/cmd/ktms@latest</code><button class="install-copy" data-copy-cmd>Copy</button></div>
+        <ul class="install-steps">
+          <li>Contexts and keys, configuration as a file with plan and apply</li>
+          <li><code>ktms route explain</code> shows which model a request would get and why</li>
+          <li><a href="/docs/cli/">Command-line tools →</a></li>
+        </ul>
+      </div>
     </div>
   </div>
 </section>
@@ -106,6 +148,25 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
   </div>
 </section>
 
+<section class="section" id="demo" style="padding-top:24px;padding-bottom:64px">
+  <div class="container hero-grid">
+    <div class="reveal">
+      <span class="eyebrow">Once it runs</span>
+      <h2>Every request, <span class="grad-text">routed for you</span></h2>
+      <p class="demo-text">Your code asks for an effort, not a model. Keystone picks the model from your rules, keeps cheap work on your own GPUs and moves to the next vendor when one fails. The response headers say who answered and why.</p>
+      <ul class="demo-points">
+        <li><code>auto:high</code> goes to the strongest model in the chain</li>
+        <li><code>auto:low</code> stays on a local node: zero cloud tokens</li>
+        <li>a vendor 503 becomes a fallback the caller never sees</li>
+      </ul>
+    </div>
+    <div class="terminal reveal d1" aria-label="Requests through Keystone and how they were routed">
+      <div class="terminal-bar"><i></i><i></i><i></i><span>~/your-service</span></div>
+      <div class="terminal-body" data-terminal></div>
+    </div>
+  </div>
+</section>
+
 <section class="stats">
   <div class="container">
     <div class="stats-grid reveal">
@@ -115,6 +176,32 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
       <div class="stat"><b class="grad-text">~170 ms</b><span>from start to first answer</span></div>
     </div>
     <p class="stats-note">KTMS, measured in October 2026 on GCP <code>c3-standard-4</code> against a mock upstream. Compiled proxies such as agentgateway, APISIX and Kong add even less latency; KTMS plays in their league and adds the features. <a href="https://github.com/ai-process/ktms#resource-footprint">Method and full numbers →</a></p>
+    <div class="adoption reveal">
+      <div class="adopt"><b>{{ site.data.stats.docker_pulls | divided_by: 100 | divided_by: 10.0 }}k</b><span>Docker pulls of Keystone, light-tokenmeter and ktms-admin</span></div>
+      <div class="adopt"><b>{{ site.data.stats.latest_release }}</b><span>latest release, {{ site.data.stats.latest_release_date | date: "%b %-d, %Y" }}</span></div>
+      <div class="adopt"><b>{{ site.data.stats.releases }}</b><span>releases of Keystone so far</span></div>
+    </div>
+    <details class="methods reveal">
+      <summary>Every installation method · sources</summary>
+      <div class="methods-body">
+        <table>
+          <thead><tr><th>Method</th><th>Command or artifact</th><th>Guide</th></tr></thead>
+          <tbody>
+            <tr><td>Try locally</td><td><code>curl -fsSL https://ai-process.dev/install.sh | sh</code></td><td><a href="https://github.com/ai-process/ktms/blob/main/scripts/install.sh">script</a></td></tr>
+            <tr><td>Docker image</td><td><code>coyl/ktms</code> (amd64, arm64; <code>:audio</code> with ffmpeg)</td><td><a href="/docs/ktms/#docker-image">docs</a></td></tr>
+            <tr><td>Kubernetes</td><td><code>oci://ghcr.io/ai-process/charts/ktms</code></td><td><a href="/docs/ktms/#helm-chart-kubernetes">docs</a></td></tr>
+            <tr><td>From source</td><td><code>git clone https://github.com/ai-process/ktms</code> + <code>docker compose up --build</code></td><td><a href="/docs/ktms/#building-from-source">docs</a></td></tr>
+            <tr><td>Claude Code</td><td><code>claude plugin install ktms@ai-process</code></td><td><a href="/docs/skills/">docs</a></td></tr>
+            <tr><td>Other assistants</td><td>ready prompts</td><td><a href="/docs/prompts/">docs</a></td></tr>
+            <tr><td>GPU node</td><td><code>scripts/install-node.sh</code> (Ollama + node agent)</td><td><a href="/docs/quickstart-local-node/">docs</a></td></tr>
+            <tr><td>CLI and MCP</td><td><code>go install github.com/ai-process/ktms/cmd/ktms@latest</code>, <code>coyl/ktms-cli</code></td><td><a href="/docs/cli/">docs</a></td></tr>
+            <tr><td>Usage meter</td><td><code>coyl/light-tokenmeter</code></td><td><a href="/docs/light-tokenmeter/">docs</a></td></tr>
+            <tr><td>Web console</td><td><code>coyl/ktms-admin</code></td><td><a href="/docs/ktms-admin/">docs</a></td></tr>
+          </tbody>
+        </table>
+        <p>Pulls are the sum of Docker Hub's <code>pull_count</code> for <code>coyl/ktms</code>, <code>coyl/light-tokenmeter</code>, <code>coyl/ktms-admin</code> (with its former name <code>coyl/llm-proxy-admin</code>) and <code>coyl/ktms-cli</code>, as of {{ site.data.stats.measured }}. A pull is not an install: CI, upgrades and mirrors pull too. Releases come from the GitHub API. Both refresh daily when the site builds.</p>
+      </div>
+    </details>
   </div>
 </section>
 
@@ -257,6 +344,25 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
   </div>
 </section>
 
+<section class="section" id="assistant" style="padding-top:24px">
+  <div class="container">
+    <div class="section-head center reveal">
+      <span class="eyebrow">Works inside your AI assistant</span>
+      <h2>Your assistant does the setup. <span class="grad-text">You review it.</span></h2>
+      <p>The Claude Code plugin brings skills and two read-only MCP servers. Ask in plain words; the assistant reads your system, writes the configuration and shows a plan before anything changes.</p>
+    </div>
+    <div class="assist-grid">
+      <div class="assist-card reveal"><code>/ktms:assess</code><h4>Where does it fit?</h4><p>Surveys your services, LLM calls, deployment, secrets and GPUs, and says what Keystone changes and costs here.</p></div>
+      <div class="assist-card reveal d1"><code>/ktms:deploy</code><h4>Run the stack</h4><p>Compose or Helm for Keystone, light-tokenmeter and ktms-admin, with secrets from your store and a first-start runbook.</p></div>
+      <div class="assist-card reveal d2"><code>/ktms:integrate</code><h4>Connect a service</h4><p>One client module, an effort per call site, attribution, an error policy and tests, in your codebase.</p></div>
+    </div>
+    <div class="assist-install reveal">
+      <div class="install-cmd"><code><span class="p">$</span> claude plugin marketplace add ai-process/ktms &amp;&amp; claude plugin install ktms@ai-process</code><button class="install-copy" data-copy-cmd>Copy</button></div>
+      <p>Also <code>/ktms:configure</code>, <code>/ktms:node</code>, <code>/ktms:migrate</code>, <code>/ktms:usage-reports</code>, <code>/ktms:production-review</code>. Cursor, Codex or Copilot? Use the same steps as <a href="/docs/prompts/">ready prompts</a>.</p>
+    </div>
+  </div>
+</section>
+
 <section class="section" id="quickstart">
   <div class="container qs">
     <div class="reveal">
@@ -333,6 +439,24 @@ response = client.chat.completions.create(
   </div>
 </section>
 
+<section class="section" id="faq" style="padding-top:24px">
+  <div class="container faq">
+    <div class="section-head reveal">
+      <span class="eyebrow">A few details</span>
+      <h2>Questions <span class="grad-text">before you begin</span></h2>
+    </div>
+    <div class="faq-list reveal">
+      <details><summary>Why another gateway when LiteLLM exists?</summary><p>LiteLLM is great for Python-centric work with hundreds of niche providers. Keystone is built for production infrastructure: a gRPC API with typed contracts, effort-based routing, budgets per key and user, and a local GPU pool. On our stand it was ready in ~170 ms instead of ~32 s and used ~145× less memory at 200 RPS. Both can run side by side while you compare. <a href="https://github.com/ai-process/ktms#resource-footprint">Method and numbers →</a></p></details>
+      <details><summary>Is it the fastest gateway?</summary><p>No. On the same stand agentgateway, APISIX and Kong add 0.25–0.35 ms at p50 against ~0.64 ms for Keystone and use less CPU per request. Keystone is in the same sub-millisecond league and sustains ≥4,000 RPS on 4 vCPU; it differs on features and licence, not raw speed.</p></details>
+      <details><summary>Does it work with local models?</summary><p>Yes. Add any OpenAI-compatible server (Ollama, vLLM, llama.cpp, LocalAI) as a model, or run <code>ktms-node-agent</code> on your machines to get a self-balancing pool that reports VRAM and speed and falls back to the cloud when busy. <a href="/docs/local-nodes/">Local GPU node pool →</a></p></details>
+      <details><summary>Which providers are supported?</summary><p>OpenAI, Anthropic, Google Gemini, DeepSeek, Groq and any OpenAI-compatible endpoint. We go deep on each (streaming, structured output, batches at 50% off, speech, images) rather than wide on adapter count.</p></details>
+      <details><summary>What does the installer change on my machine?</summary><p>It writes <code>~/ktms/compose.yaml</code> and <code>~/ktms/.env</code> (generated keys, readable only by you) and starts three containers; only Keystone is published, on localhost. Run it again to add a vendor key or update; <code>--uninstall</code> removes the containers, their data and the files. <a href="https://github.com/ai-process/ktms/blob/main/scripts/install.sh">Read the script →</a></p></details>
+      <details><summary>What if the project is abandoned?</summary><p>Everything is Apache 2.0, tested with <code>-race</code> in CI and plain Go, with a <a href="/docs/roadmap/">public roadmap</a>. Anyone can fork it and run it indefinitely.</p></details>
+      <details><summary>How do the maintainers make money?</summary><p>Keystone and light-tokenmeter were built for our own infrastructure and are maintained as open-source core tools. There is no paid edition and no licence to sell.</p></details>
+    </div>
+  </div>
+</section>
+
 <section class="section" style="padding-top:0">
   <div class="container">
     <div class="blog-card reveal">
@@ -351,9 +475,12 @@ response = client.chat.completions.create(
   <div class="container reveal">
     <h2>Put one switchboard<br>in front of <span class="grad-text">all your models</span></h2>
     <p>Free, self-hosted and Apache-2.0-licensed. Run it next to your current setup and compare.</p>
+    <div class="cta-install">
+      <div class="install-cmd"><code><span class="p">$</span> curl -fsSL <span class="nw">https://ai-process.dev/install.sh</span> | sh</code><button class="install-copy" data-copy-cmd>Copy</button></div>
+    </div>
     <div class="hero-cta">
-      <a class="btn btn-primary" href="https://github.com/ai-process/ktms">Star KTMS on GitHub</a>
       <a class="btn btn-ghost" href="/docs/">Read the docs</a>
+      <a class="btn btn-ghost" href="https://github.com/ai-process/ktms">Star Keystone on GitHub</a>
     </div>
   </div>
 </section>
