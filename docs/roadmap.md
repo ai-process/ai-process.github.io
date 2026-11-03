@@ -46,6 +46,11 @@ Every 1.x release is additive: new RPCs, fields, endpoints and settings. Anythin
 - light-tokenmeter: retention settings for Postgres and ClickHouse, and published memory and
   throughput measurements.
 
+### Local nodes
+
+- One `ktms-node` serving several KTMS gateways, each at its own level, sharing the engine and its
+  loaded models.
+
 ## Next
 
 ### Agent tools: MCP, second stage
