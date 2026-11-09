@@ -21,6 +21,11 @@ defaults:
       path: "docs"
     values:
       layout: doc
+  # Diagram viewers are heavy standalone pages with no searchable text; keep them out of sitemap.xml.
+  - scope:
+      path: "assets/diagrams"
+    values:
+      sitemap: false
 
 exclude:
   - README.md
