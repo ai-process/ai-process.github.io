@@ -1903,7 +1903,7 @@ by request rate, not by how long vendors take to answer.
 ## Development
 
 Building, testing and contributing are described in the repository's
-[README](https://github.com/ai-process/ktms#development) and
+[Development](https://github.com/ai-process/ktms/blob/main/docs/development.md#development) and
 [CONTRIBUTING.md](https://github.com/ai-process/ktms/blob/main/CONTRIBUTING.md). Releases are tagged
 `vX.Y.Z`, with signed binaries and images; see the [CHANGELOG](https://github.com/ai-process/ktms/blob/main/CHANGELOG.md). Keystone is licensed under [Apache 2.0](https://github.com/ai-process/ktms/blob/main/LICENSE).
 {% endraw %}

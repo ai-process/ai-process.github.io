@@ -193,7 +193,7 @@ The `ai-process` services are compiled Go binaries without an interpreter or vir
 
 ### Resource Footprint Comparison: ai-process vs LiteLLM
 
-**Measurement Methodology (2026-10-20, two identical runs; full report: [ktms-benchmark.md](https://github.com/ai-process/ktms#resource-footprint)):**
+**Measurement Methodology (2026-10-20, two identical runs; full report: [ktms-benchmark.md](https://github.com/ai-process/ktms/blob/main/docs/install.md#resource-footprint)):**
 - Environment: GCP `europe-west3`; system under test on `c3-standard-4` (4 vCPU, 16 GB RAM, x86_64, Docker), `k6` load generator on a separate `c3-standard-4`.
 - Versions: `KTMS` (commit `b68742e` with the connection-reuse fix ai-process/ktms#72, `slim` target), LiteLLM Proxy (`ghcr.io/berriai/litellm:v1.106.0`, one Uvicorn worker per core (4), master key only, no database, `LITELLM_LOG=ERROR`).
 - Workload: mock upstream; added latency at 200 RPS with a 0 ms upstream, 50 concurrent SSE streams for TTFT, 5-minute soak at 200 RPS, throughput steps up to 4,000 RPS with a 10 ms upstream. Memory is cgroup v2 `anon` (RSS) of the gateway container only (Postgres/Redis not counted); peak is cgroup `memory.peak` over the whole run. Readiness is `docker start` to the first successful completion proxied through the gateway. Values are rounded means of the two runs.
@@ -213,7 +213,7 @@ The `ai-process` services are compiled Go binaries without an interpreter or vir
 | **Concurrency Model** | Goroutines across all cores in a single process | Goroutines across all cores in a single process | Multiple OS processes (one per Uvicorn worker) + asyncio | Single process uses all cores; no per-worker memory duplication |
 | **Container Base Image** | Alpine (non-root UID 10001) | Alpine up to 0.1.1 (non-root UID 10001); distroless static (UID 65532) from 0.1.2 | Python runtime (Chainguard/Debian), pip, Debian system packages | Fewer system components in runtime image |
 
-The same stand also measured nine other gateways. Against compiled and Nginx/Envoy-based proxies `KTMS` is in the same league (sub-millisecond overhead, ≥4,000 RPS) and has the lowest memory together with agentgateway, but it is not the fastest: agentgateway, Apache APISIX and Kong add 0.25–0.35 ms at p50 and use 0.26–0.40 s of CPU per 1,000 requests, against ~0.64 ms and ~0.63 s for `KTMS`. See the [benchmark report](https://github.com/ai-process/ktms#resource-footprint) and the [competitor overview](https://github.com/ai-process/ktms#resource-footprint).
+The same stand also measured nine other gateways. Against compiled and Nginx/Envoy-based proxies `KTMS` is in the same league (sub-millisecond overhead, ≥4,000 RPS) and has the lowest memory together with agentgateway, but it is not the fastest: agentgateway, Apache APISIX and Kong add 0.25–0.35 ms at p50 and use 0.26–0.40 s of CPU per 1,000 requests, against ~0.64 ms and ~0.63 s for `KTMS`. See the [benchmark report](https://github.com/ai-process/ktms/blob/main/docs/install.md#resource-footprint) and the [competitor overview](https://github.com/ai-process/ktms/blob/main/docs/install.md#resource-footprint).
 
 ### Scale-to-Zero and Serverless Benefits
 
