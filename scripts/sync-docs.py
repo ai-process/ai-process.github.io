@@ -38,7 +38,7 @@ PAGES = {
     "roadmap.md": ("roadmap", "Roadmap", 19),
 }
 TOOLS = {"cli.md", "mcp.md", "skills.md"}
-BENCH = "https://github.com/ai-process/ktms#resource-footprint"
+BENCH = "https://github.com/ai-process/ktms/blob/main/docs/install.md#resource-footprint"
 EXTERNAL = {
     "ktms-benchmark.md": BENCH,
     "competitors/index.md": BENCH,
