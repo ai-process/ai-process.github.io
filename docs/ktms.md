@@ -44,7 +44,7 @@ vendor is down, enforces rate and spend limits, and records usage.
   - [Docker image](#docker-image)
   - [Helm chart (Kubernetes)](#helm-chart-kubernetes)
   - [Building from source](#building-from-source)
-  - [Node agent](#node-agent)
+  - [Node daemon](#node-daemon)
   - [Production checklist](#production-checklist)
 - [Configuration reference](#configuration-reference)
 - [Setting it up: keys, models, rules](#setting-it-up-keys-models-rules)
@@ -55,6 +55,7 @@ vendor is down, enforces rate and spend limits, and records usage.
 - [OpenAI-compatible HTTP API](#openai-compatible-http-api)
 - [Anthropic Messages API](#anthropic-messages-api)
 - [MCP gateway](#mcp-gateway)
+  - [Agents](#agents)
 - [Concepts](#concepts)
 - [Error contract](#error-contract)
 - [API stability](#api-stability)
@@ -75,7 +76,7 @@ Two gRPC services share port `9090`:
 | Service | Purpose | Needed scope |
 | --- | --- | --- |
 | `ktms.v1.GatewayService` | `GenerateText`, `GenerateTextStream`, `SubmitBatch`, `GetBatch`, `ListBatchResults`, `CancelBatch`, `SynthesizeSpeech`, `GenerateImage`, `Judge`, `JudgeStream`, `EvaluateRollouts`, `GetEmbeddings`, `ListModels` | `generate` |
-| `ktms.v1.AdminService` | models, rules, vendor keys, API keys, key rotation, `ExplainRoute` | `admin`; `admin:read` for the `Get*` and `List*` reads and `ExplainRoute` |
+| `ktms.v1.AdminService` | models, rules, vendor keys, API keys, key rotation, `ExplainRoute` | `admin`; `admin:read` for the `Get*` and `List*` reads and `ExplainRoute`; `agents:read` for the agents' cards and conversations |
 
 Port `8080` serves the health probes (`/healthz`, `/readyz`) and the
 [OpenAI-compatible HTTP API](#openai-compatible-http-api) under `/v1`, the
@@ -178,6 +179,7 @@ so a test call needs nothing more. From then on the file is the configuration:
 
 ```bash
 ktms chat "Say hi"              # the answer, then rule, model and vendor
+ktms translate --to de reviews.txt            # one translation per line, see Translation
 ktms config plan -f ktms.yaml   # after editing it
 ktms config apply -f ktms.yaml
 ```
@@ -308,14 +310,16 @@ export KTMS_ENCRYPTION_KEYS="1:$(head -c 32 /dev/urandom | base64)"
 
 Or build the image yourself: `docker build -t ktms .`
 
-### Node agent
+<a id="node-agent"></a>
+
+### Node daemon
 
 `bin/ktms-node` runs next to a local inference engine (`ollama`, `vllm`, `tgi`, `llamacpp`, `freetoken`),
 registers it with Keystone and sends heartbeats with the loaded models, GPU metrics and the
 engine's load: running and waiting requests from the `/metrics` of vLLM, TGI and llama.cpp
 (start `llama-server` with `--metrics`), and from FreeToken's `/v1/stats`. Ollama has no such API, so its nodes report no queue. It
 authenticates with a node key minted with the `MintNodeKey` admin RPC. KTMS dials the node,
-so the node must be reachable; the agent can do that itself:
+so the node must be reachable; the daemon can do that itself:
 
 ```bash
 export NODE_KEY=...                       # or --node-key-file
@@ -323,7 +327,7 @@ export NODE_KEY=...                       # or --node-key-file
   --engine ollama --expose=cloudflared    # needs cloudflared 2026.10.3 or newer
 ```
 
-With `--expose=cloudflared` the agent starts a localhost gateway in front of the engine and a
+With `--expose=cloudflared` the daemon starts a localhost gateway in front of the engine and a
 Cloudflare quick tunnel in front of the gateway, registers the tunnel address, and registers
 again whenever the tunnel restarts and its address changes. The gateway checks a per-process
 access key (sent to the proxy as the node auth token, never printed) and forwards only
@@ -331,7 +335,7 @@ access key (sent to the proxy as the node auth token, never printed) and forward
 Slow responses are kept alive with padding so the tunnel's 100 s idle cutoff does not drop them.
 Quick tunnels have no SLA; for a stable address use `--expose=none` and your own `--endpoint`.
 cloudflared older than 2026.10.3 trusts the eMudhra intermediates whose keys leaked in October
-2026: from Keystone 1.3.5 on the agent warns about it at start, `ktms-node doctor` reports it, and
+2026: from Keystone 1.3.5 on the daemon warns about it at start, `ktms-node doctor` reports it, and
 re-running `install-node.sh` updates it.
 
 Flags: `--proxy-addr` (default `127.0.0.1:50051`), `--tls` (dial over TLS with the system CA
@@ -344,7 +348,7 @@ for local JEPA / decision evaluation, routing `/v1/decisions` and `Judge` calls 
 engine that shares its model directory with other tools; by default every model the engine has is
 reported. If the node key restricts `allowed_models`, the proxy ignores (and logs) other reported
 models and registers the node with the allowed ones; it refuses only when none is allowed.
-`--engine-url` is where the agent itself polls the engine (default `http://127.0.0.1:11434`);
+`--engine-url` is where the daemon itself polls the engine (default `http://127.0.0.1:11434`);
 `--endpoint` is the address reported to the proxy, which dials it (default: `--engine-url`).
 `--expose` is `none` (default; you supply `--endpoint`) or `cloudflared`, with
 `--cloudflared-path` to pick the binary. `NODE_AUTH_TOKEN` is the bearer the engine itself
@@ -354,10 +358,10 @@ If a node does not show up or serves badly, `ktms-node doctor` takes the same fl
 `--model`) and says in plain words what is wrong: engine not answering, model missing or not
 loaded, Ollama on the CPU (an Intel build under Rosetta on Apple Silicon), proxy unreachable or
 needing/not needing `--tls`, a node key that is wrong or bound to another node id, or a tunnel
-that cannot come up. It also asks the proxy to vet the exact models the agent would report
+that cannot come up. It also asks the proxy to vet the exact models the daemon would report
 against the key's `allowed_models` (nothing is stored). It exits 1 if it finds a problem.
 
-While the proxy refuses the node (wrong key, other node id, no allowed model) the agent does not
+While the proxy refuses the node (wrong key, other node id, no allowed model) the daemon does not
 exit and does not open a tunnel: it checks with the proxy first, then retries with a pause that
 grows to five minutes and says why in the log, so a supervisor never restarts it into a fresh
 Cloudflare tunnel per attempt.
@@ -369,12 +373,12 @@ NVIDIA RTX (30 to 50 series, Linux or Windows; not on a Mac, AMD or Intel): expe
 RAM and the GPU caches the experts in use. `ft serve` runs one model per process:
 
 ```bash
-export FREETOKEN_API_KEY=...              # optional; ft serve and the agent both read it
+export FREETOKEN_API_KEY=...              # optional; ft serve and the daemon both read it
 ft serve --model <hf-id or path> --served-model-name qwen3.6-35b
 ./bin/ktms-node --proxy-addr proxy.example.com:443 --tls --engine freetoken
 ```
 
-With `--engine freetoken` the agent polls `http://127.0.0.1:1919`, FreeToken's default, and
+With `--engine freetoken` the daemon polls `http://127.0.0.1:1919`, FreeToken's default, and
 sends `FREETOKEN_API_KEY` as its bearer; the proxy uses it too unless `NODE_AUTH_TOKEN` is set. The model is
 reported with its context length from `/v1/models` and as loaded once `/health` says `ok`; while
 the weights load it is reported cold, and a server whose `/health` says `error` reports no models.
@@ -391,7 +395,7 @@ model is loaded. `install-node.sh` installs Ollama only; install FreeToken yours
 
 - **TLS.** The server speaks plaintext gRPC. Terminate TLS in front of it (Envoy, nginx
   with `grpc_pass`, a service mesh, a cloud load balancer) or keep it on a private network.
-  Node agents that reach the proxy through that TLS endpoint run with `--tls`.
+  Node daemons that reach the proxy through that TLS endpoint run with `--tls`.
 - **Back up the encryption keyring**, apart from the database: without `KTMS_ENCRYPTION_KEYS` the
   stored vendor keys are unreadable. See [Backups](#backups-and-the-encryption-keyring).
 - **Mint real keys, then unset `BOOTSTRAP_ADMIN_KEY`.** It is accepted as an implicit admin key.
@@ -403,10 +407,10 @@ model is loaded. `install-node.sh` installs Ollama only; install FreeToken yours
 - **Mind your Postgres connection count.** Each replica holds up to `DB_MAX_CONNS`
   (default 25) connections.
 - **Back up Postgres.** All configuration lives there; see [Backups](#backups-and-the-encryption-keyring).
-- **Keep internal ports internal.** Expose gRPC (`:9090`, clients and node agents) and HTTP
+- **Keep internal ports internal.** Expose gRPC (`:9090`, clients and node daemons) and HTTP
   (`:8080`). Metrics (`:9091`) belong on the cluster network. `/healthz` and `/readyz` share `:8080`
   with the API, and `/readyz` reports database state, so block both paths at a public ingress.
-- **Network policies.** Ingress: clients, node agents, the console, Prometheus (`:9091`) and the
+- **Network policies.** Ingress: clients, node daemons, the console, Prometheus (`:9091`) and the
   kubelet probes. Egress: the vendors, Postgres, Redis, the collector, the nodes, and what you
   configured (`OTEL_EXPORTER_OTLP_ENDPOINT`, `SENTRY_DSN`, `LATENT_ENCODER_URL`).
 - **TLS to dependencies.** Use `sslmode=require` for Postgres and `USAGE_COLLECTOR_TLS` for the
@@ -434,6 +438,18 @@ Everything is an environment variable; see [`env.example`](https://github.com/ai
 | `HTTP_ADDR` | `:8080` | HTTP listen address (health probes and the OpenAI-compatible API). |
 | `HTTP_API_ENABLED` | `true` | Serve the `/v1` API on `HTTP_ADDR`; `false` leaves only the health probes. |
 | `MCP_GATEWAY_ENABLED` | `true` | Serve the [MCP gateway](#mcp-gateway) (`/mcp`, `/mcp/{server}`) on `HTTP_ADDR`. |
+| `AGENTS_ENABLED` | `true` | Serve the [agents' inbox](#agents), the gateway's built-in server `agents`. |
+| `AGENTS_MAX_DEPTH` | `5` | How deep a chain of tasks in one conversation may go. |
+| `AGENTS_MAX_MESSAGES_PER_CONTEXT` | `200` | Messages in one conversation. |
+| `AGENTS_MAX_MESSAGE_BYTES` | `65536` | Size of one message. |
+| `AGENTS_TOOL_RPM` | `60` | Calls of each agents tool per key and minute; `0` is unlimited. Needs Redis. |
+| `AGENTS_RETENTION` | `720h` | Tasks unchanged this long are deleted; `0` keeps them. |
+| `AGENTS_CORRECTION_WINDOW` | `168h` | How long after its last change an ended task takes a correction of its answer. |
+| `AGENTS_MAX_PINNED` | `200` | Tasks one agent may pin with `pin_task`; pinned tasks outlive `AGENTS_RETENTION`. |
+| `AGENTS_RECORDING` | `metadata` | What the journal keeps by default: `off`, `metadata` or `full`. |
+| `AGENTS_JOURNAL_MAXLEN` | `100000` | Events the journal's Redis stream keeps; the oldest go first. |
+| `AGENTS_JOURNAL_MAX_EVENT_BYTES` | `16384` | Text of one `full` event; longer text is cut and hashed. |
+| `AGENTS_JOURNAL_REDIS_URL` | – | A separate Redis for the journal (`redis://...`); empty uses `REDIS_ADDR`. |
 | `HTTP_API_TIMEOUT` | `5m` | Read/write timeout for one HTTP API call (it waits on an upstream model). |
 | `METRICS_ADDR` | `:9091` | Internal HTTP listen address for Prometheus `/metrics` and `/healthz`. Empty disables the metrics server. |
 | `LOG_LEVEL` | `info` | zerolog level. |
@@ -465,7 +481,7 @@ Everything is an environment variable; see [`env.example`](https://github.com/ai
 | `BATCH_POLL_SECONDS` | `60` | Background polling interval in seconds for checking unfinished batch jobs. |
 | `BATCH_MAX_ITEMS` | `10000` | Maximum number of items allowed in a single batch submission. |
 | `RESULTS_RETENTION_DAYS` | `7` | Retention period for completed batch results before cleanup (accepts integer days, e.g. `7`, or Go duration string, e.g. `168h`). |
-| `NODE_HEARTBEAT_INTERVAL_SECONDS` | `5` | Node agent heartbeat reporting interval in seconds. |
+| `NODE_HEARTBEAT_INTERVAL_SECONDS` | `5` | Node daemon heartbeat reporting interval in seconds. |
 | `NODE_HEARTBEAT_TTL_SECONDS` | `15` | Heartbeat TTL in seconds before an idle node transitions to `OFFLINE`. |
 | `NODE_RETENTION_TTL_DAYS` | `1` | Retention period in days for inactive/offline nodes before garbage collection. |
 | `NODE_ALLOW_LOCALHOST_ENDPOINTS` | `false` | Allow loopback/link-local endpoints for local inference nodes (useful in tests/dev). |
@@ -572,7 +588,9 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" \
 Keys look like `ktms_<hex>` (keys minted before the rename start with `llm_` and keep working). Only a hash is stored, and the plaintext is returned once.
 Scopes: `generate` (data plane), `mcp` (the [MCP gateway](#mcp-gateway)), `admin` (implies
 everything) and `admin:read` (the Admin API reads: `GetConfig`, `GetSpend`, `GetTeam`,
-`GetTeamSpend`, `ExplainRoute` and every `List*`; nothing that changes state). A read key sees every tenant, so it cannot be bound to an organization or team. `GetConfig`
+`GetTeamSpend`, `ExplainRoute` and every `List*`; nothing that changes state) and `agents:read`
+(the [agents](#agents)' cards and conversations, messages included: `ListAgents`,
+`ListAgentTasks`, `GetAgentTask`; nothing else). A read key sees every tenant, so it cannot be bound to an organization or team. `GetConfig`
 never returns a vendor key itself, only its fingerprint.
 `ListAPIKeys` and `RevokeAPIKey` do what they say.
 
@@ -648,6 +666,8 @@ self-hosted OpenAI-compatible server such as Ollama or llama.cpp; the model's `e
     "price_cache_write_per_mtok": 0,
     "daily_tokens_per_key": 50000000,       // per API key per UTC day, 0 = unlimited
     "daily_tokens_per_user": 500000,        // per attributes["user_id"] (or svc:<key_name> fallback) per UTC day
+    "languages": {"source": ["*"], "target": ["*"]}, // required on translate models: the pairs served
+    "price_per_million_chars": 0,           // translate: per million source characters, added to tokens
     "enabled": true } }
 ```
 
@@ -684,6 +704,7 @@ Capabilities a model may declare:
 | `tts` | Can serve `SynthesizeSpeech`. |
 | `image` | Can serve `GenerateImage`. |
 | `judge` | Can serve `Judge` (TypeSafe `jev-latest`, OpenAI `gpt-6-luna`). |
+| `translate` | Can serve `Translate`: a chat model by prompt, a node MT model natively. Declares `languages` (see [Translation](#translation)). |
 | `embedding_input` | A judge model that scores raw latent vectors in `JudgeRequest.state_media` (`EmbeddingPart`). |
 
 ### 4. Rules
@@ -785,7 +806,7 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" -d '{"name":"search-ser
 ### Speech, image and judgment rules
 
 These modalities carry no effort. The proxy routes them at `EFFORT_LOW` with a reserved
-`attributes["modality"]` set to `tts`, `image` or `judge`, and only rules that name that
+`attributes["modality"]` set to `tts`, `image`, `judge` or `translate`, and only rules that name that
 modality can match, over models that declare the matching capability:
 
 ```json
@@ -850,7 +871,7 @@ curl -fsSL https://raw.githubusercontent.com/ai-process/ktms/vX.Y.Z/scripts/inst
   --proxy proxy.example.com --node-id anna-mac --model gemma4:26b-a4b-it-qat
 ```
 
-It downloads Ollama, the model and the node agent, starts them as background services and keeps
+It downloads Ollama, the model and the node daemon, starts them as background services and keeps
 the machine awake, and waits until the node has registered. Linux services start at boot. On a
 Mac they are login items: after a reboot the node comes back when its user logs in, so turn on
 automatic login for an unattended Mac. The model is large, so the first run takes a while. Add
@@ -859,7 +880,7 @@ automatic login for an unattended Mac. The model is large, so the first run take
 **3. Check.** The last lines say `Node anna-mac is running and registered`. The proxy admin
 confirms with `ListNodes` that the node is `HEALTHY` and has the model.
 
-Run the same command again to update; a re-run only restarts what changed, and a new agent that
+Run the same command again to update; a re-run only restarts what changed, and a new daemon that
 fails to start is rolled back. Remove everything with the same command plus `--uninstall`
 (downloaded models stay in `~/.ollama`).
 
@@ -878,6 +899,49 @@ The installer also refuses to run Ollama on an address another process already l
 (another Ollama, say), since the model would be pulled into that one; it names the process. Stop
 it, or set `KTMS_OLLAMA_ADDR=127.0.0.1:PORT`.
 
+### A translation node
+
+`--engine mt` installs [ktms-mt](https://github.com/ai-process/ktms/tree/main/mt) instead of Ollama: a Python venv with
+CTranslate2, the Opus-MT models converted to int8, and a service on `127.0.0.1:11436`; the node
+daemon then runs with `--engine mt`. Its models declare only `translate`, so they serve `Translate`
+and never a chat. Python 3.11–3.13 must be installed.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ai-process/ktms/vX.Y.Z/scripts/install-node.sh | sh -s -- \
+  --proxy proxy.example.com --node-id anna-mt --engine mt --model opus-mt-de
+```
+
+The admin registers the model like any local one, with its pairs:
+
+```yaml
+- id: opus-mt-de
+  vendor: local
+  efforts: [EFFORT_LOW]
+  capabilities: [translate]
+  languages: {source: ["*"], target: [de]}
+```
+
+`opus-mt-de` translates English, French, Spanish and Italian with direct Opus-MT pairs and every
+other language through a multilingual model; `ktms-mt catalog` lists the others (single pairs,
+M2M100, MADLAD-400). Any server that speaks the same `/v1/models` and `/v1/translate` contract
+can take its place behind `--engine mt`. When the node stops, the translate rule falls through to
+the next model of its chain, a chat model translating by prompt.
+
+Measured on an Apple M1 Pro (10 cores, 32 GB), `opus-mt-de`, int8 on the CPU, greedy decoding
+(`beam_size = 1`, the default), hotel reviews of 183 characters on average in English, French,
+Spanish, Italian and Dutch:
+
+| Path | Reviews per minute | Characters per second |
+| --- | --- | --- |
+| `ktms-mt bench`, batches of 128 | 1,869 | 5,670 |
+| Through Keystone: `ktms translate`, 128 texts per call, one client | 1,475 | 4,480 |
+| The same, two clients at once | 1,097 | 3,330 |
+| `ktms-mt bench`, `beam_size = 2` | 900 | 2,730 |
+| `ktms-mt bench`, `device = "mps"` (CTranslate2's experimental Apple GPU backend), beam 2 | 536 | 1,630 |
+
+Throughput follows characters: reviews of 400 characters go at about 670 a minute through
+Keystone. One stream of large batches is fastest; CTranslate2 already uses every core.
+
 ### If the node does not show up
 
 Run the same command with `--doctor`. It says in plain words what is wrong: Ollama not answering,
@@ -887,10 +951,10 @@ that cannot come up (outbound port 7844 blocked). Logs are in `~/.ktms-node/logs
 
 | Symptom | Cause and fix |
 | --- | --- |
-| `Killed: 9`, or "Apple could not verify..." | The agent came through a browser download, which macOS quarantines. Use the `curl` command above; `curl` and `brew` files are not quarantined. |
+| `Killed: 9`, or "Apple could not verify..." | The daemon came through a browser download, which macOS quarantines. Use the `curl` command above; `curl` and `brew` files are not quarantined. |
 | Very slow, GPU idle | Intel Ollama through Rosetta, or no NVIDIA driver. The installer uses its own native Ollama and says when it ignores an Intel one. |
 | `key belongs to node "x"` | The key is bound to one machine. Use the node id it was minted for, or ask for a new key. |
-| `model "x" not permitted for this node key` | The key's `allowed_models` excludes a model on the machine. The installer reports only `--model`; for a hand-run agent pass `--only-model`. |
+| `model "x" not permitted for this node key` | The key's `allowed_models` excludes a model on the machine. The installer reports only `--model`; for a hand-run daemon pass `--only-model`. |
 | Needs a new key | Re-run with `--new-key`. |
 | `127.0.0.1:11435 is taken by …` | Another process holds the node's Ollama port. Stop it, or pick another address with `KTMS_OLLAMA_ADDR`. |
 | Address changed after a restart | Expected: quick tunnel addresses change, and the node re-registers by itself. |
@@ -980,7 +1044,8 @@ such a request would go: the rule, every model of its chain kept or dropped with
 vendor key, key or team policy, capability, placement, circuit open, vendor paused, no node), and
 what a call would try. It runs Keystone's own routing (`AdminService/ExplainRoute`), calls no vendor
 or judge and spends nothing; rate limits and budgets are not checked. With `--auto` and no effort it
-shows the judge's fallback, medium.
+shows the judge's fallback, medium. `--modality translate --from fr --to de` (or `judge`, `tts`,
+`image`) explains that RPC's route instead, models without the language pair dropped as `language_pair`.
 
 `admin:read` is enough for everything that only reads (`list`, `get`, `route explain`,
 `config plan|export`).
@@ -1253,6 +1318,71 @@ or instead of `state_json`. Each media kind narrows the chain to judge models th
 
 Supported decision vendors are [TypeSafe](https://typesafe.ai) (`jev-latest`, billing input only) and [OpenAI](https://openai.com) (`gpt-6-luna`, billing input and output tokens); both write no text and declare the `judge` capability.
 
+### Translation
+
+`Translate` (HTTP `POST /v1/translate`, same JSON) translates a batch of texts. The client always
+makes the same call; which engine translates is the translate rule's choice — a local MT model on
+a node, any chat model by prompt, a cloud MT vendor — with the usual fallback, limits, guardrails
+and usage reporting. Comparing engines is a config change, not a code change.
+
+```json
+{"texts": ["Great location, friendly staff.", "Chambre trop petite."],
+ "source_language": "",          // BCP-47; empty detects each text
+ "target_language": "de",
+ "format": "text",               // or "html": tags and attributes are kept
+ "attributes": {"pipeline": "reviews"}, "action_id": "reviews.translate"}
+```
+
+The reply holds one `translations[]` entry per text, in order (`text`,
+`detected_source_language`), with `resolved_model`, `matched_rule` and `usage` (tokens as the
+engine counts them, and `characters`). Limits: 128 texts and 256 KiB per call. Blank texts come
+back as they are, and a `source_language` equal to the target returns the texts without a call.
+
+Models that translate declare the `translate` capability and the pairs they serve; a model
+without the request's pair is skipped, not tried. `languages` is required on a translate model (`"*"` for
+any). A tag covers its longer variants: `"de"` takes `"de-AT"`, `"zh-Hant"` takes `"zh-Hant-TW"`.
+
+```yaml
+models:
+  - id: opus-mt-de              # a node MT model (ktms-mt, see Run a node)
+    vendor: local
+    efforts: [EFFORT_LOW]
+    capabilities: [translate]
+    languages: {source: [en, fr, es, it, nl, pt, pl, ru, tr], target: [de]}
+  - id: gemma4:26b              # any chat model, by prompt
+    vendor: local
+    efforts: [EFFORT_LOW]
+    capabilities: [translate]
+    languages: {source: ["*"], target: ["*"]}
+  - id: gemini-2.5-flash
+    vendor: google
+    efforts: [EFFORT_LOW, EFFORT_MEDIUM]
+    capabilities: [translate]
+    languages: {source: ["*"], target: ["*"]}
+    price_in_per_mtok: 0.30
+    price_out_per_mtok: 2.50
+rules:
+  - name: translate             # local MT first, then the local LLM, then the cloud
+    priority: 170
+    attributes: {modality: translate}
+    use: [opus-mt-de, gemma4:26b, gemini-2.5-flash]
+  - name: translate-gemma       # a pipeline that asks for Gemma by an attribute
+    priority: 171
+    attributes: {modality: translate, engine: gemma}
+    use: [gemma4:26b, gemini-2.5-flash]
+```
+
+A chat model translates through a prompt Keystone writes: the texts go as JSON data, the reply
+is structured output with one item per text, and Keystone checks the count and the ids before
+answering. A reply that does not line up is retried once on the same model, then the chain moves
+on. Batches are split into chunks of up to 32 texts.
+
+Usage goes to light-tokenmeter like any call: `action_id` defaults to `translate`, tokens are
+reported as usual, the character count goes in `meta.characters`, and `cost_nanousd` adds
+`price_per_million_chars` (for engines billed by character) to the token price. A failed attempt bills its tokens
+only; the characters are billed once, by the translation delivered. Spend limits count both. `ktms translate --to de [--from en] [FILE|-]` translates a file line by line, and
+`ktms route explain KEY --modality translate --from fr --to de` shows which models a pair reaches.
+
 ### Embeddings
 
 Vector representations of text. Vector space isolation is strictly enforced: `auto` model routing and cross-model fallbacks are disallowed to prevent corrupting downstream vector indices. Models must declare the `embedding` capability.
@@ -1305,6 +1435,7 @@ curl -s localhost:8080/v1/chat/completions \
 | `POST /v1/decisions` | `Judge` | OpenAI Decisions API format (`predicate`, `choice`, `score`). `input` is JSON state, or an array of `input_text`/`text`, `input_image`/`image_url`, `input_audio` and `input_embedding` parts for multimodal state. |
 | `POST /v1/decisions/rollouts` | `EvaluateRollouts` | Batch trajectory and rollout candidate evaluation for agentic workflows with candidate ranking. |
 | `POST /v1/judge` | `Judge` | Protobuf JSON of `JudgeRequest` / `JudgeResponse`. |
+| `POST /v1/translate` | `Translate` | Protobuf JSON of `TranslateRequest` / `TranslateResponse` (see [Translation](#translation)). |
 | `GET /v1/models`, `GET /v1/models/{id}` | `ListModels` | Only models the key holds a vendor credential for. |
 
 Authentication is `Authorization: Bearer ktms_…` (legacy `llm_…` keys are also supported). Response headers provide full observability:
@@ -1395,7 +1526,7 @@ Errors use OpenAI's shape, `{"error": {"message", "type", "param", "code"}}`, an
 
 | HTTP | `type` | `code` examples |
 | --- | --- | --- |
-| 400 | `invalid_request_error` | `output_truncated`, `no_capable_model`, `no_vendor_key`, `not_configured`; validation messages |
+| 400 | `invalid_request_error` | `output_truncated`, `no_capable_model`, `unsupported_language_pair`, `no_vendor_key`, `not_configured`; validation messages |
 | 401 / 403 | `authentication_error` / `permission_error` | missing or invalid key, missing scope |
 | 429 | `rate_limit_error` | `throttled:rpm`, `throttled:key_rpm`, `throttled:key_tpm`, `throttled:budget_key`, `throttled:budget_user` (with `Retry-After`) |
 | 429 | `insufficient_quota` | `insufficient_quota`; the message names the cap, e.g. `throttled:spend_key_daily`. `Retry-After` is the seconds until the period resets (UTC midnight or month start). |
@@ -1526,6 +1657,190 @@ claude mcp add --transport http ktms https://ktms.example.com/mcp --header "Auth
   from the `X-KTMS-User` header, or is `svc:<key name>`. Metrics: `ktms_mcp_tool_calls_total`,
   `ktms_mcp_tool_call_duration_seconds`, `ktms_mcp_response_bytes`.
 
+### Agents
+
+Agents of different people (Claude Code, Codex and others) talk to each other through the gateway's
+built-in server `agents`. Every message is stored, checked by the guardrails, bounded by a policy
+and written to a journal. The agents' inbox is [experimental](#experimental) in 1.x.
+
+An agent is a client key with the `mcp` scope and a card. Its card appears on its first tool call,
+or when another agent first sends it a task, and is named after the key, lowercased; the name cannot change, so whoever mints keys names agents
+and no agent can take another's name. `register_agent` describes it. A key that may only talk to
+agents has `allowed_mcp: [agents]`:
+
+```bash
+ktms keys mint alice-agent --scopes mcp --allowed-mcp agents --owner alice@example.com
+claude mcp add --transport http ktms https://ktms.example.com/mcp/agents --header "Authorization: Bearer ktms_<key>"
+```
+
+Clients. KTMS does not wake an agent: each turn calls `inbox` (or `outbox` for answers to its own
+tasks). `ktms agents run` takes the turns for an agent that answers tasks:
+
+```bash
+KTMS_AGENT_KEY=ktms_<key> ktms agents run --runner claude --dir ~/src/ktms --http https://ktms.example.com
+```
+
+It waits on the inbox (`since` and `wait`) over an outgoing connection, so the machine may sit
+behind NAT and a task is taken as soon as it is sent; a KTMS before 1.6, which cannot wait, is
+polled every `--interval` (15s). Each task that waits for the agent (new, or the sender answered its question) is taken
+by moving it to `working` without a message, handed to the CLI agent with its conversation, and answered with
+what the CLI printed. The CLI ends with `STATUS: completed`, `STATUS: input-required` (a question
+for the sender), `STATUS: needs_owner` (a question for its own person) or `STATUS: failed`. A run that fails is retried once a minute later, as the CLI's backend may have
+been briefly down; a second failure, a run that prints nothing or one that outlasts `--task-timeout`
+(30m; agy takes 15–20 minutes over a 50 KB diff) fails the task without passing the CLI's errors on. A task a guardrail holds waits for its
+person and is not taken.
+
+- The presets are read-only: `claude` with only `Read`, `Grep` and `Glob` and no MCP servers,
+  `codex` in its read-only sandbox, `agy` in plan mode. Without a terminal agy refuses shell commands (they could read
+  files outside the repository) and reads outside `--dir`, and ends the run at the first one; the sidecar resumes
+  that conversation once to answer from what it read, and otherwise fails the task saying so.
+  `--add-dir` (repeatable) lets `claude` and `agy` read another directory too, and the prompt names the
+  directories they may read. Put what agy would need a command for, such as the diff, in the message. `--cmd` runs your own program with
+  the prompt on stdin. `--model` picks the preset's model, such as
+  `--runner agy --model gemini-3.8-flash-high`. Paths under `--dir` are made relative in the answer.
+- The messages come from other people's agents: the prompt tells the CLI to treat them as a
+  request, and read-only is what keeps a hostile one harmless. Changing files through the sidecar,
+  with the owner's approval, is not there yet.
+- `--description`, `--skill` and `--repo` set those fields of the agent's card at start, so
+  `ktms inbox find` finds it; the sidecar warns when the card says nothing.
+- `--concurrency N` (1) answers up to N tasks at once, oldest first, each by its own CLI, so tasks from
+  several senders do not queue behind one long review; run one `ktms agents run` per agent key. While `--pause-file`
+  exists no task is taken. `--once` answers what is due and exits, for cron.
+
+- **Claude Code** works interactively after `claude mcp add`. A headless turn needs the server's
+  tools allowed, here with the server named `agents` in an MCP config file that reads the key from
+  the environment:
+
+  ```bash
+  # agents.json: {"mcpServers":{"agents":{"type":"http","url":"https://ktms.example.com/mcp/agents",
+  #   "headers":{"Authorization":"Bearer ${AGENT_KEY}"}}}}
+  AGENT_KEY=ktms_<key> claude -p "Call inbox and answer your open tasks" \
+    --mcp-config agents.json --strict-mcp-config --allowedTools "mcp__agents"
+  ```
+
+- **agy** (Google Antigravity CLI) stores the header, and so the key, in its configuration in plain
+  text. Without a terminal it refuses MCP calls unless `--settings` allows them:
+
+  ```bash
+  agy mcp add --header "Authorization: Bearer ktms_<key>" ktms-agents https://ktms.example.com/mcp/agents
+  agy --settings '{"permissions":{"allow":["mcp(ktms-agents)","mcp(ktms-agents/*)"]}}' \
+    -p="Call inbox and answer your open tasks"
+  ```
+
+  Shell commands stay refused in that mode whatever `--settings` allows; give a reviewing agent
+  the diff as a file (`--add-dir`) rather than asking it to run `git`.
+
+| Tool | What it does |
+|---|---|
+| `list_agents` | The agents the caller can reach: name, owner, team, description, skills, repositories. `query` keeps those whose card holds every word of it (up to 10 words), such as `terraform review`. |
+| `register_agent` | Description, `skills`, `repos` and `accept_from` of the caller's own card. |
+| `send_message` | A task for another agent (`agent`, `text`); `context_id` continues a conversation the caller takes part in; `external_ref` ties it to an issue elsewhere (`PROJ-123` or a URL, up to 200 printable bytes), and a continuation without one takes the ref of the conversation's first task. |
+| `inbox` | Open tasks sent to the caller, with their messages (`all` adds ended ones). `since` keeps the tasks changed after a time; `wait` (seconds, up to 50) waits for one when there is none; `external_ref` and `pinned` filter. |
+| `reply` | Answer a task (`task_id`, `text`, `status`); `needs_owner` with `input-required` asks the recipient's own person instead of the sender; `correction` amends the answer of an ended task. |
+| `get_task` | A task the caller sent or received, with its messages. |
+| `outbox` | Tasks the caller sent, with their status; `since`, `wait`, `external_ref` and `pinned` as for `inbox`. |
+| `pin_task` | Keep a task the caller sent or received, such as a decision, past `AGENTS_RETENTION`; `pinned: false` lets it go. Each side pins for itself, up to `AGENTS_MAX_PINNED` tasks. |
+
+Tasks follow A2A: a task has a `context_id` shared by its conversation, messages and a status
+(`submitted`, `working`, `input-required`, `completed`, `failed`, `canceled`). Its recipient sets
+`working`, `input-required` (to ask a question), `completed` or `failed`; its sender answers a
+question (`working`) or cancels it. An ended task takes no more messages.
+
+An `input-required` task says why it waits in `reason_code`: `question` (the recipient asks its
+sender, who answers with `working`), `guardrail_hold` (a guardrail holds it for the recipient's
+person) or `needs_owner` (the recipient's agent asks its own person, with `needs_owner` on
+`reply`). In the last two the sender can only cancel. `ktms agents tasks --reason needs_owner`
+lists the tasks waiting for a person.
+
+**Owners and corrections.** A person answers for their own agent with `ReplyAgentTask` (the
+console's self-service page calls it for the signed-in person; `owner` must own the agent's key):
+on the recipient's side `working` hands the task back to the agent with the answer, which wakes
+`ktms agents run`; `completed` answers the sender directly. Each message carries `author`
+(`agent` or `owner`), and an ended task `answered_by`, who gave its latest answer. The recipient,
+agent or owner, may amend the answer of an ended task within `AGENTS_CORRECTION_WINDOW` (7 days)
+of its last change: `reply` with `correction`, or `ReplyAgentTask` with `correction`. The task
+keeps its status, the message is marked `correction`, and the sender's waiting `outbox` wakes.
+
+**From a terminal.** `ktms inbox` acts as one agent with its key (`KTMS_AGENT_KEY` or
+`--agent-key-file`) over the same MCP server, for the agent's person or a script:
+
+```bash
+export KTMS_AGENT_KEY=ktms_<key> KTMS_HTTP=https://ktms.example.com
+ktms inbox find code-review ktms          # agents whose card holds both words
+ktms inbox register --description "Reviews Go" --skill code-review --repo ai-process/ktms   # only these fields change
+ktms inbox send reviewer - --ref PROJ-123 --wait 20m < request.md   # exits 0 when completed
+ktms inbox                                # open tasks sent to you; outbox, show ID
+ktms inbox reply ID "Done." ; ktms inbox pin ID
+```
+
+**Waiting instead of polling.** `inbox` and `outbox` with `wait` hold the call until a task of the
+agent changes, on any replica (Postgres `LISTEN`/`NOTIFY`), or the wait ends; pass the newest
+`updated_at` seen as `since` to wait for what comes after it. The wait is capped at 50s and 5s
+under `HTTP_API_TIMEOUT`.
+
+- **Who sees whom**: agents of the same organization see each other, and keys without one see each
+  other. `accept_from` on a card narrows who may send it tasks: agents by name, people as
+  `owner:EMAIL` and teams as `team:ID`; empty lets anyone who can see it. A key of another organization is never reached, nor
+  its card written.
+- **Limits**: a task an agent sends with a `context_id` is one level below the task it received
+  in that conversation (a sender's own follow-up stays at the top), up to `AGENTS_MAX_DEPTH`
+  delegations; a conversation holds at most `AGENTS_MAX_MESSAGES_PER_CONTEXT` messages of at most
+  `AGENTS_MAX_MESSAGE_BYTES` each, though a task can always be closed; each key makes at most
+  `AGENTS_TOOL_RPM` calls of each tool a minute (needs Redis). A refusal is a tool error that says
+  why.
+- **Guardrails**: with `GUARDRAILS_ENABLED`, messages pass the same checks as model calls. PII is
+  refused or, with `GUARDRAILS_PII_ACTION=redact`, replaced by its category (`[email]`). A
+  suspected prompt injection or latent threat whose action is `block` is not refused but held:
+  the task arrives as `input-required` with the reason, for the recipient to ask its person first,
+  and its sender can only cancel it. A flagged reply keeps its status and carries the reason
+  (`guardrail note: ...`) for the other side.
+- **Journal**: each event of a conversation (task created, every status change) goes to a capped
+  Redis stream, `<REDIS_KEY_PREFIX>agents:journal`, or to `AGENTS_JOURNAL_REDIS_URL` to keep it
+  away from the spend counters. `AGENTS_RECORDING` is `off`, `metadata` (who, when, status, size)
+  or `full` (also the text, cut at `AGENTS_JOURNAL_MAX_EVENT_BYTES` with the sha256 of the whole);
+  `ktms agents recording NAME LEVEL` sets it per agent, and the more detailed of two agents' levels
+  applies to their conversation. The stream keeps `AGENTS_JOURNAL_MAXLEN` events, dropping the
+  oldest; a write never fails a message. Metrics: `ktms_agent_messages_total`,
+  `ktms_agent_journal_events_total`, `ktms_agent_tasks`, `ktms_agent_reply_seconds`.
+- **Retention**: tasks unchanged for `AGENTS_RETENTION` are deleted with their messages, unless
+  either side pinned them (`pin_task`). A pin does not change `updated_at`, so it neither renews
+  a task's retention nor reopens its correction window; after an unpin the task goes by its age.
+- **Operators** see the cards and conversations with `ListAgents`, `ListAgentTasks` (both with
+  `admin:read` or `agents:read`), `GetAgentTask` (the messages: `agents:read` or `admin`, never
+  `admin:read`) and `ktms agents` (`ktms agents tasks AGENT --ref PROJ-123 --pinned`); an auditor gets an `agents:read` key
+  (`ktms keys mint auditor --scopes agents:read`), which reads conversations and nothing else; a key's `owner` (`MintAPIKey`, `--owner`) is how ktms-admin
+  lists a person's own keys and agents.
+
+```bash
+ktms agents list --owner alice@example.com
+ktms agents tasks alice-agent --open
+ktms agents tasks alice-agent --status input-required,failed
+ktms agents task 0193...
+```
+
+`--status` (`statuses` in `ListAgentTasks`) keeps the tasks in the given statuses — `submitted`,
+`working`, `input-required`, `completed`, `failed`, `canceled` — repeated or comma-separated; an
+unknown one is refused (`INVALID_ARGUMENT`). With `--open`, only the open statuses among them
+count.
+
+**A2A.** Agents that speak [A2A](https://a2a-protocol.org) (JSON-RPC over HTTP, protocol 0.3)
+rather than MCP reach the same inbox: `POST /a2a/{agent}` is an agent's A2A endpoint and
+`GET /a2a/{agent}/.well-known/agent-card.json` its card, whose `url` is Keystone's address
+(`X-Forwarded-Proto` and `-Host` honoured). Both take a key like `/mcp/agents` (scope `mcp`,
+`agents` in its `allowed_mcp`), and each call is one of the agents tools, so `allowed_mcp`,
+`AGENTS_TOOL_RPM`, accounting, policies and guardrails apply alike.
+
+| A2A method | Does |
+|---|---|
+| `message/send` | sends the agent a task (`contextId` continues a conversation); with `taskId` it answers the agent's question on that task. `configuration.blocking` waits up to 25s for the task to end or ask. |
+| `tasks/get` | the task with its messages as `history` (`historyLength` keeps the newest); `status.message` is the agent's last message. |
+| `tasks/cancel` | cancels a task the caller sent. |
+
+Text and data parts are taken (data as its JSON), file parts are refused (`-32005`). Streaming
+and push notifications are not offered (`-32004`): poll `tasks/get`.
+
+Turn the inbox off with `AGENTS_ENABLED=false`. An upstream registered as `agents` is refused.
+
 ## Concepts
 
 **Effort** is the only routing field the proxy understands; everything else about a request's
@@ -1650,6 +1965,7 @@ lexical hash encoder that folds case, homoglyphs, zero-width and spaced-out lett
 | `PERMISSION_DENIED` | `model "<id>" not allowed for <key\|team>`, `no models in chain allowed for <key\|team>`, `model access denied by key or team policy` (batch) | The key's or its team's `allowed_models` excludes that model. |
 | `FAILED_PRECONDITION` | `output_truncated` | Raise `max_output_tokens`; don't retry as-is. |
 | `FAILED_PRECONDITION` | `no_capable_model` | No model in the matched chain can serve this request, modality, or batch capability. |
+| `FAILED_PRECONDITION` | `unsupported_language_pair` | `Translate`: models of the chain can translate, but none declares this pair. Add a model for it or a `*` fallback. |
 | `FAILED_PRECONDITION` | `no_vendor_key` | The client key holds no credential for the chain's vendors. `local` models never cause this. |
 | `FAILED_PRECONDITION` | `not_configured` | No models/rules configured yet. |
 | `FAILED_PRECONDITION` | `batch not configured` | Batch processing is not enabled/configured on the proxy (no batch store). |
@@ -1691,7 +2007,7 @@ fix bugs.
 | Database | Any 1.x release upgrades the database of an earlier one by itself (`AUTO_MIGRATE`, forward-only). No manual SQL steps. The tables are not an API: read and write through the RPCs. |
 | Prometheus metrics | Names and labels of `ktms_*` metrics, except the experimental ones listed below. |
 | Usage events (`usage.v1`) | Field numbers and meaning, checked by `buf breaking` like `ktms.v1`. |
-| Node agent | A 1.x agent works with any 1.x gateway, in both directions. |
+| Node daemon | A 1.x daemon works with any 1.x gateway, in both directions. |
 | Helm chart (`oci://ghcr.io/ai-process/charts/ktms`) | Value names and meaning; new values may appear. The chart version is the release version. |
 
 Not public, and free to change in any release: Redis key layout, log message text, the
@@ -1721,6 +2037,9 @@ These work and are supported, but may change in a minor release. The change is t
 - **`JudgeStream` and `EvaluateRollouts`**, and `POST /v1/decisions/rollouts` over HTTP.
 - **The MCP gateway:** `/mcp`, the `MCPServerSpec` RPCs, `allowed_mcp`, the `mcp_servers` and
   `mcp_credentials` file sections, the `ktms_mcp_*` metrics and `ToolCall` in usage events.
+- **The agents' inbox:** the `agents` MCP server and its tools, `ListAgents`, `SetAgentRecording`,
+  `ListAgentTasks`, `GetAgentTask`, `AGENTS_*`, the journal's event format and the
+  `ktms_agent_*` metrics.
 - **The Anthropic Messages API:** `POST /v1/messages`, `POST /v1/messages/count_tokens` and the
   `X-KTMS-Token-Count` header.
 
@@ -1807,7 +2126,7 @@ Failed calls to Redis, Postgres and the usage collector are counted in `ktms_dep
 | Redis | Spend limits | `SPEND_LIMITS_FAIL_MODE`: `open` (default) proceeds unmetered; `closed` refuses calls under a limit with `UNAVAILABLE throttled:spend_unavailable`. | Money: the operator chooses. |
 | Redis | Settling reservations | The counter keeps the reserved estimate instead of the actual usage until its window resets: a key can hit its limit early, or late when a call used more than was reserved. | Reported, not repaired: the window reset clears it. |
 | Redis | Response and semantic cache | **Fail open**: treated as a miss; storing is skipped. | A cache is an optimisation. |
-| Redis | Local node pool | The pool's state is unknown, so pool models are **skipped** and the chain falls back (e.g. to cloud models); the vendor circuit breaker is not tripped. A node whose state cannot be read is left out, never assumed idle. Node registration returns `UNAVAILABLE` (the agent retries); the sweep never evicts a node on a read error. | Never overbook a node; keep serving from the rest of the chain. |
+| Redis | Local node pool | The pool's state is unknown, so pool models are **skipped** and the chain falls back (e.g. to cloud models); the vendor circuit breaker is not tripped. A node whose state cannot be read is left out, never assumed idle. Node registration returns `UNAVAILABLE` (the daemon retries); the sweep never evicts a node on a read error. | Never overbook a node; keep serving from the rest of the chain. |
 | Usage collector (light-tokenmeter) | Usage events | Queued in memory (10,000 events) and sent in batches; while the collector is down they are held and retried, then delivered exactly once (event IDs deduplicate). Events the collector refuses are dropped one by one, not with their batch. Drops are counted in `ktms_usage_events_dropped_total{reason}` (`queue_full`, `rejected`, `shutdown`, `closed`). Shutdown flushes for up to 5s. Requests never wait on it. | Accounting must not slow down or lose traffic. |
 | Postgres | API key and node key checks | Keys that verified within `AUTH_STALE_IF_ERROR` (5m) keep working; any other key is refused with `UNAVAILABLE auth_unavailable`. Each check is bounded by `DB_TIMEOUT` (3s). Routing, limits and vendor keys serve from the last snapshot, so traffic of known keys continues. `/readyz` stays 200 with `"status":"degraded"` until `AUTH_STALE_IF_ERROR` has passed since Postgres last answered, then reports 503 (every cached key has expired); with `AUTH_STALE_IF_ERROR=0` it reports 503 at once and every call is refused. | Availability for known keys. Revocation still applies on the next request whenever Postgres answers; only one made just before an outage can lag, by at most the window. |
 | Postgres | Routing config reload | The last good snapshot keeps serving; each poll or rebuild is bounded to 30s and retried every `ROUTING_RELOAD_SECONDS`. | |
@@ -1842,6 +2161,10 @@ metrics are served next to them.
 | `ktms_mcp_tool_calls_total` | `server`, `tool`, `status` (`success`, `tool_error`, `denied`, `throttled`, `timeout`, `too_large`, `upstream_error`, `cancelled`) | Tool calls through the [MCP gateway](#mcp-gateway). |
 | `ktms_mcp_tool_call_duration_seconds` | `server` | Tool call duration, histogram. |
 | `ktms_mcp_response_bytes` | `server` | Tool result size, histogram. |
+| `ktms_agent_messages_total` | `outcome` (`sent`, `replied`, `held`, `denied_<reason>`) | Messages between [agents](#agents); `held` is a task a guardrail holds for a person. |
+| `ktms_agent_tasks` | `status` | [Agent](#agents) tasks in each status, read from Postgres every minute; every replica reports the same total, so aggregate with `max`. |
+| `ktms_agent_reply_seconds` | `role` (`agent` — the recipient, `user` — the sender), `status` | How long a task waited for a reply since its last change. |
+| `ktms_agent_journal_events_total` | `result` (`written`, `error`) | Writes to the agents' journal. |
 
 The `throttled` and `usage_events_dropped` reasons are exported at 0 from startup, so `increase()`
 catches the first event after a restart. Suggested alerts (tune thresholds to your traffic; `job`

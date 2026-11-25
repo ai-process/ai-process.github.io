@@ -75,14 +75,14 @@ Ensure your inference engine is running and bound to a network interface:
 
 ---
 
-## 3. Run the Node Agent (`ktms-node`)
+## 3. Run the Node Daemon (`ktms-node`)
 
 Build the binary or download a release asset:
 ```bash
 make build # outputs bin/ktms-node
 ```
 
-Start the agent on the machine, pointing to the `KTMS` gateway address and the engine endpoint:
+Start the daemon on the machine, pointing to the `KTMS` gateway address and the engine endpoint:
 
 ```bash
 export NODE_KEY="ktms_node_0123456789abcdef..."

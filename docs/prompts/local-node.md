@@ -40,7 +40,7 @@ Setup (edit before sending):
 - Fallback cloud models: <gpt-4o-mini, …>.
 
 Facts:
-- The node agent registers with a node key (ktms_node_…) bound to one node id: MintNodeKey
+- The node daemon registers with a node key (ktms_node_…) bound to one node id: MintNodeKey
   {name, node_id}; the key is shown once.
 - The model must exist as vendor "local" with id exactly equal to the Ollama tag (UpsertModel;
   efforts it may serve; capabilities ["no_thinking"] for models that reason by default, such as
@@ -49,7 +49,7 @@ Facts:
 - Rules route to it like to any model: put the local model first in the fallback chain and cloud
   models after it. Clients can also choose placement: model "auto:nodes-first" (the default),
   "auto:nodes-only" (never leave the machine), "auto:cloud-first", "auto:cloud-only".
-- On the machine, one command installs Ollama, the model and the agent as user services, keeps
+- On the machine, one command installs Ollama, the model and the daemon as user services, keeps
   the machine awake and waits for registration:
   curl -fsSL https://raw.githubusercontent.com/ai-process/ktms/v1.3.6/scripts/install-node.sh | sh -s -- \
     --proxy <gateway> --node-id <id> --model <tag> [--max-concurrency N] [--context N] [--plaintext]
