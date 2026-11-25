@@ -67,7 +67,7 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
       <div class="install-panel" data-panel-way="node" hidden>
         <div class="install-cmd"><code><span class="p">$</span> curl -fsSL <span class="nw">https://raw.githubusercontent.com/ai-process/ktms/main/scripts/install-node.sh</span> | sh -s -- --proxy ktms.example.com --node-id gpu-1 --model qwen3:8b</code><button class="install-copy" data-copy-cmd>Copy</button></div>
         <ul class="install-steps">
-          <li>Runs Ollama and the node agent on a Mac or a GPU box as user services</li>
+          <li>Runs Ollama and the node daemon on a Mac or a GPU box as user services</li>
           <li>Keystone sends work there first and falls back to the cloud when it is busy</li>
           <li><a href="/docs/quickstart-local-node/">Node quick start →</a></li>
         </ul>
@@ -193,7 +193,7 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
             <tr><td>From source</td><td><code>git clone https://github.com/ai-process/ktms</code> + <code>docker compose up --build</code></td><td><a href="/docs/ktms/#building-from-source">docs</a></td></tr>
             <tr><td>Claude Code</td><td><code>claude plugin install ktms@ai-process</code></td><td><a href="/docs/skills/">docs</a></td></tr>
             <tr><td>Other assistants</td><td>ready prompts</td><td><a href="/docs/prompts/">docs</a></td></tr>
-            <tr><td>GPU node</td><td><code>scripts/install-node.sh</code> (Ollama + node agent)</td><td><a href="/docs/quickstart-local-node/">docs</a></td></tr>
+            <tr><td>GPU node</td><td><code>scripts/install-node.sh</code> (Ollama + node daemon)</td><td><a href="/docs/quickstart-local-node/">docs</a></td></tr>
             <tr><td>CLI and MCP</td><td><code>go install github.com/ai-process/ktms/cmd/ktms@latest</code>, <code>coyl/ktms-cli</code></td><td><a href="/docs/cli/">docs</a></td></tr>
             <tr><td>Usage meter</td><td><code>coyl/light-tokenmeter</code></td><td><a href="/docs/light-tokenmeter/">docs</a></td></tr>
             <tr><td>Web console</td><td><code>coyl/ktms-admin</code></td><td><a href="/docs/ktms-admin/">docs</a></td></tr>
@@ -298,7 +298,7 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
       <div class="feature-text reveal">
         <div class="feature-num">2</div>
         <h3>Your GPUs first, the cloud when they are busy</h3>
-        <p>Run Ollama, vLLM or llama.cpp on your own hardware. <code>ktms-node-agent</code> registers each machine and reports VRAM, time to first token and tokens per second.</p>
+        <p>Run Ollama, vLLM or llama.cpp on your own hardware. The node daemon <code>ktms-node</code> registers each machine and reports VRAM, time to first token and tokens per second.</p>
         <p>KTMS balances the pool with Smooth WRR, keeps hot or overloaded nodes out of rotation and, with <code>nodes_first</code>, spills over to cloud vendors only when local capacity runs out.</p>
       </div>
       <div class="card reveal d1">
@@ -448,7 +448,7 @@ response = client.chat.completions.create(
     <div class="faq-list reveal">
       <details><summary>Why another gateway when LiteLLM exists?</summary><p>LiteLLM is great for Python-centric work with hundreds of niche providers. Keystone is built for production infrastructure: a gRPC API with typed contracts, effort-based routing, budgets per key and user, and a local GPU pool. On our stand it was ready in ~170 ms instead of ~32 s and used ~145× less memory at 200 RPS. Both can run side by side while you compare. <a href="https://github.com/ai-process/ktms/blob/main/docs/install.md#resource-footprint">Method and numbers →</a></p></details>
       <details><summary>Is it the fastest gateway?</summary><p>No. On the same stand agentgateway, APISIX and Kong add 0.25–0.35 ms at p50 against ~0.64 ms for Keystone and use less CPU per request. Keystone is in the same sub-millisecond league and sustains ≥4,000 RPS on 4 vCPU; it differs on features and licence, not raw speed.</p></details>
-      <details><summary>Does it work with local models?</summary><p>Yes. Add any OpenAI-compatible server (Ollama, vLLM, llama.cpp, LocalAI) as a model, or run <code>ktms-node-agent</code> on your machines to get a self-balancing pool that reports VRAM and speed and falls back to the cloud when busy. <a href="/docs/local-nodes/">Local GPU node pool →</a></p></details>
+      <details><summary>Does it work with local models?</summary><p>Yes. Add any OpenAI-compatible server (Ollama, vLLM, llama.cpp, LocalAI) as a model, or run the node daemon <code>ktms-node</code> on your machines to get a self-balancing pool that reports VRAM and speed and falls back to the cloud when busy. <a href="/docs/local-nodes/">Local GPU node pool →</a></p></details>
       <details><summary>Which providers are supported?</summary><p>OpenAI, Anthropic, Google Gemini, DeepSeek, Groq and any OpenAI-compatible endpoint. We go deep on each (streaming, structured output, batches at 50% off, speech, images) rather than wide on adapter count.</p></details>
       <details><summary>What does the installer change on my machine?</summary><p>It writes <code>~/ktms/compose.yaml</code> and <code>~/ktms/.env</code> (generated keys, readable only by you) and starts three containers; only Keystone is published, on localhost. Run it again to add a vendor key or update; <code>--uninstall</code> removes the containers, their data and the files. <a href="https://github.com/ai-process/ktms/blob/main/scripts/install.sh">Read the script →</a></p></details>
       <details><summary>What if the project is abandoned?</summary><p>Everything is Apache 2.0, tested with <code>-race</code> in CI and plain Go, with a <a href="/docs/roadmap/">public roadmap</a>. Anyone can fork it and run it indefinitely.</p></details>
