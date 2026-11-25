@@ -216,12 +216,12 @@ section { position: relative; }
 .card-title { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-bottom: 16px; display: flex; justify-content: space-between; }
 
 /* rules visual */
-.rule { display: grid; grid-template-columns: 92px 1fr; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px dashed var(--border); }
+.rule { display: grid; grid-template-columns: 128px 1fr; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px dashed var(--border); }
 .rule:last-child { border-bottom: 0; }
-.effort { font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 5px 0; border-radius: 8px; text-align: center; }
-.effort.low { background: rgba(123,216,143,.12); color: var(--green); }
-.effort.med { background: rgba(255,213,74,.12); color: var(--yellow); }
-.effort.high { background: rgba(255,122,26,.15); color: var(--orange); }
+.need { font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 5px 6px; border-radius: 8px; text-align: center; }
+.need.low { background: rgba(123,216,143,.12); color: var(--green); }
+.need.med { background: rgba(255,213,74,.12); color: var(--yellow); }
+.need.high { background: rgba(255,122,26,.15); color: var(--orange); }
 .chain { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-family: var(--mono); font-size: 12.5px; }
 .chain span { padding: 4px 9px; border-radius: 7px; background: rgba(255,255,255,.05); border: 1px solid var(--border); }
 .chain span.primary { border-color: rgba(255,169,40,.45); color: var(--yellow); }

@@ -59,18 +59,18 @@
     };
     var scenes = [
       {
-        cmd: request("auto:high"),
+        cmd: request("auto:general=expert"),
         out: [
           '<span class="ok">HTTP/1.1 200 OK</span>',
           '<span class="h">X-KTMS-Vendor:</span> anthropic',
-          '<span class="h">X-KTMS-Rule:</span> default-high',
+          '<span class="h">X-KTMS-Route-Mode:</span> auto-effort',
           '<span class="h">X-KTMS-Placement:</span> cloud_first',
           '{"choices":[{"message":{"content":"Here is the plan…"}}]}',
-          '<span class="c"># effort HIGH → strongest model in the chain</span>'
+          '<span class="c"># needs general=expert → an expert model, cheapest first</span>'
         ]
       },
       {
-        cmd: request("auto:low"),
+        cmd: request("auto:general=basic"),
         out: [
           '<span class="ok">HTTP/1.1 200 OK</span>',
           '<span class="h">X-KTMS-Vendor:</span> local',
