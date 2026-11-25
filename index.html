@@ -8,7 +8,7 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
     <div>
       <span class="pill"><span class="dot"></span>Open source · Apache 2.0 · Written in Go</span>
       <h1>One switchboard for <span class="grad-text">every LLM</span> you run</h1>
-      <p class="lead">Keystone. The Model Switchboard. (KTMS) is a self-hosted LLM gateway: it keeps your vendor keys, routes each request to the cheapest model that can do it, falls back when a provider fails and caps spend. light-tokenmeter shows who burns the tokens. ktms-admin puts it all in your browser.</p>
+      <p class="lead">Keystone. The Model Switchboard. (KTMS) is a self-hosted LLM gateway: it keeps your vendor keys, routes each request to a model that can do it, without spending an expert on simple work, falls back when a provider fails and caps spend. light-tokenmeter shows who burns the tokens. ktms-admin puts it all in your browser.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="#demo">See it route a request</a>
         <a class="btn btn-ghost" href="/docs/">Read the docs</a>
@@ -282,7 +282,7 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
       <div class="feature-text reveal">
         <div class="feature-num">1</div>
         <h3>Say what you need, not which model</h3>
-        <p>Code sends its needs, such as <code>needs: {medical: basic}</code>, and free-form attributes. Models declare competencies (<code>basic</code> &lt; <code>proficient</code> &lt; <code>expert</code>). Keystone picks the cheapest models that meet the needs, and your rules pin a chain where you want one.</p>
+        <p>Code sends its needs, such as <code>needs: {medical: basic}</code>, and free-form attributes. Models declare competencies (<code>basic</code> &lt; <code>proficient</code> &lt; <code>expert</code>). Keystone picks the models that meet the needs, the closest fit first and the cheaper of equals before the dearer, and your rules pin a chain where you want one.</p>
         <p>Rules change at runtime over the admin API or in ktms-admin. A new model release is a config change, not a refactor across a dozen services.</p>
       </div>
       <div class="card reveal d1">
@@ -290,7 +290,7 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
         <div class="rule"><span class="need low">general: basic</span><div class="chain"><span class="primary">local · gemma</span><em>→</em><span>gemini-flash</span></div></div>
         <div class="rule"><span class="need med">medical: basic</span><div class="chain"><span class="primary">gpt-mini</span><em>→</em><span>deepseek-chat</span><em>→</em><span>gemini-flash</span></div></div>
         <div class="rule"><span class="need high">general: expert</span><div class="chain"><span class="primary">claude</span><em>→</em><span>gpt</span><em>→</em><span>gemini-pro</span></div></div>
-        <div class="rule"><span class="need high">rule: tenant=eu</span><div class="chain"><span class="primary">gemini-pro</span><em>→</em><span>local · llama</span></div></div>
+        <div class="rule"><span class="need high">general: expert</span><div class="chain"><em>if</em><span>tenant=eu</span><em>→</em><span class="primary">gemini-pro</span><em>→</em><span>local · llama</span></div></div>
       </div>
     </div>
 
@@ -400,7 +400,7 @@ OPENAI_API_KEY=sk-... <span class="k">sh</span> -c <span class="s">"$(curl -fsSL
 
 client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>, api_key=<span class="s">"ktms_local_…"</span>)
 response = client.chat.completions.create(
-    model=<span class="s">"auto"</span>,  <span class="c"># or "auto:low", "auto:high"</span>
+    model=<span class="s">"auto"</span>,  <span class="c"># or "auto:general=basic", "auto:medical=expert"</span>
     messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"Say hi in three words."</span>}],
 )
 <span class="k">print</span>(response.choices[0].message.content)</pre>
@@ -446,7 +446,7 @@ response = client.chat.completions.create(
       <h2>Questions <span class="grad-text">before you begin</span></h2>
     </div>
     <div class="faq-list reveal">
-      <details><summary>Why another gateway when LiteLLM exists?</summary><p>LiteLLM is great for Python-centric work with hundreds of niche providers. Keystone is built for production infrastructure: a gRPC API with typed contracts, effort-based routing, budgets per key and user, and a local GPU pool. On our stand it was ready in ~170 ms instead of ~32 s and used ~145× less memory at 200 RPS. Both can run side by side while you compare. <a href="https://github.com/ai-process/ktms/blob/main/docs/install.md#resource-footprint">Method and numbers →</a></p></details>
+      <details><summary>Why another gateway when LiteLLM exists?</summary><p>LiteLLM is great for Python-centric work with hundreds of niche providers. Keystone is built for production infrastructure: a gRPC API with typed contracts, routing by needs and model competencies, budgets per key and user, and a local GPU pool. On our stand it was ready in ~170 ms instead of ~32 s and used ~145× less memory at 200 RPS. Both can run side by side while you compare. <a href="https://github.com/ai-process/ktms/blob/main/docs/install.md#resource-footprint">Method and numbers →</a></p></details>
       <details><summary>Is it the fastest gateway?</summary><p>No. On the same stand agentgateway, APISIX and Kong add 0.25–0.35 ms at p50 against ~0.64 ms for Keystone and use less CPU per request. Keystone is in the same sub-millisecond league and sustains ≥4,000 RPS on 4 vCPU; it differs on features and licence, not raw speed.</p></details>
       <details><summary>Does it work with local models?</summary><p>Yes. Add any OpenAI-compatible server (Ollama, vLLM, llama.cpp, LocalAI) as a model, or run <code>ktms-node-agent</code> on your machines to get a self-balancing pool that reports VRAM and speed and falls back to the cloud when busy. <a href="/docs/local-nodes/">Local GPU node pool →</a></p></details>
       <details><summary>Which providers are supported?</summary><p>OpenAI, Anthropic, Google Gemini, DeepSeek, Groq and any OpenAI-compatible endpoint. We go deep on each (streaming, structured output, batches at 50% off, speech, images) rather than wide on adapter count.</p></details>

@@ -59,14 +59,14 @@
     };
     var scenes = [
       {
-        cmd: request("auto:general=expert"),
+        cmd: request("auto:medical=expert"),
         out: [
           '<span class="ok">HTTP/1.1 200 OK</span>',
           '<span class="h">X-KTMS-Vendor:</span> anthropic',
           '<span class="h">X-KTMS-Route-Mode:</span> auto-effort',
           '<span class="h">X-KTMS-Placement:</span> cloud_first',
           '{"choices":[{"message":{"content":"Here is the plan…"}}]}',
-          '<span class="c"># needs general=expert → an expert model, cheapest first</span>'
+          '<span class="c"># needs medical=expert → a medical expert, the cheapest such</span>'
         ]
       },
       {
@@ -81,11 +81,11 @@
         ]
       },
       {
-        cmd: request("auto:medium"),
+        cmd: request("auto:general=proficient"),
         out: [
           '<span class="ok">HTTP/1.1 200 OK</span>',
           '<span class="h">X-KTMS-Vendor:</span> gemini',
-          '<span class="h">X-KTMS-Rule:</span> default-medium',
+          '<span class="h">X-KTMS-Route-Mode:</span> auto-effort',
           '<span class="h">X-KTMS-Placement:</span> cloud_first',
           '{"choices":[{"message":{"content":"Summary: …"}}]}',
           '<span class="c"># first vendor returned 503 → fell back, caller never noticed</span>'
