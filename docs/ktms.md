@@ -16,7 +16,7 @@ vendor is down, enforces rate and spend limits, and records usage.
 
 - **One place for vendor keys.** OpenAI, Anthropic (Claude), Google Gemini, DeepSeek and TypeSafe credentials
   live encrypted in Postgres (AES-256-GCM). Client services never see them.
-- **Routing by rules, not code.** Clients send an *effort* (`LOW` / `MEDIUM` / `HIGH`) and
+- **Routing by rules, not code.** Clients send their *needs* (`medical: basic`; the old *effort* `LOW` / `MEDIUM` / `HIGH` is `general`) and
   free-form *attributes*; an ordered rule list maps them to a model chain with fallbacks.
   Rules are changed at runtime over an admin RPC, with no redeploy.
 - **Throttling.** Per-model requests-per-minute and daily token budgets, per API key and
@@ -57,6 +57,7 @@ vendor is down, enforces rate and spend limits, and records usage.
 - [MCP gateway](#mcp-gateway)
   - [Agents](#agents)
 - [Concepts](#concepts)
+  - [Needs and competencies](#needs-and-competencies)
 - [Error contract](#error-contract)
 - [API stability](#api-stability)
 - [Operations](#operations)
@@ -653,7 +654,7 @@ self-hosted OpenAI-compatible server such as Ollama or llama.cpp; the model's `e
     "id": "gemini-2.5-flash",              // referenced by rules and model_override; also sent to the vendor
     "vendor": "google",
     "endpoint": "",                         // optional base-URL override (Azure, self-hosted gateways…)
-    "efforts": ["EFFORT_LOW", "EFFORT_MEDIUM"],
+    "competencies": {"general": "proficient", "legal": "basic"}, // topic -> basic | proficient | expert; replaces efforts
     "capabilities": ["google_search"],
     "rpm": 600,                             // per client key per minute, 0 = unlimited
     "price_in_per_mtok": 0.30,              // for usage reporting
@@ -721,14 +722,17 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" -d '{"rules":[
 ```
 
 - The **highest priority** matching rule wins; priorities and names are unique.
-- A rule matches when its `effort` equals the request's (unspecified = any effort) **and**
+- A rule matches when the request needs each topic of the rule's `needs` at least at that level
+  (the deprecated `effort` matches the general need exactly; unspecified = any) **and**
   every attribute in the rule equals the request's attribute.
 - `use` is the ordered **fallback chain**, cheaper-first by convention. If the first model
   is throttled or its vendor is unavailable, the next is tried.
 - `weights` (optional) enables **weighted traffic routing** (Canary or A/B testing). If specified, `weights` must contain exactly one positive integer per model in `use` (e.g. `[90, 10]`). When an explicit `canary_key` or `user_id` attribute is provided, distribution is deterministic and sticky per key (salted per rule name). If omitted or when `canary_mode: "random"` is passed, routing uses weighted random distribution. When `weights` is omitted, routing is strictly deterministic (100% on `use[0]`).
 - `shadow_model` and `shadow_percentage` (optional) enable **Shadow Routing (Request Mirroring)**: asynchronously duplicates a sample (0.0–100.0%) of incoming traffic to a candidate shadow model in the background without affecting caller latency or responses. Shadow calls are non-billable to end-users (recorded at 0 nano-USD cost in usage events), carry `is_shadow: "true"` and `shadow: "true"` metadata, do not count against caller spend limits or daily token budgets, respect model RPM limits and global concurrency semaphores (512 for shadow, 256 for evaluation) to protect proxy resources and upstream providers, and never trip circuit breakers for primary traffic.
 - `shadow_eval` (optional boolean, requires `shadow_model`): enables automated quality evaluation comparing primary vs shadow model outputs using an internal `Judge` model asynchronously in the background. The judge evaluates preference (`primary`, `shadow`, or `tie`) and quality scores without adding latency to the primary caller, respects judge model RPM and circuit breakers without consuming caller spend limits, and exports results via Prometheus metrics (`ktms_shadow_judge_evaluations_total` and `ktms_shadow_judge_scores`).
-- Validation requires a **catch-all** (no attribute predicates) for every effort, so no
+- Once a model declares competencies, a request no rule takes is routed by
+  [selection](#needs-and-competencies) and rules are optional. Without competencies,
+  validation requires a **catch-all** (no attribute predicates, no needs) for every effort, so no
   request can ever fall through. `anything-else` above covers all three at once.
 - `ReplaceRules` swaps the whole set atomically; there is no per-rule CRUD.
 
@@ -805,7 +809,7 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" -d '{"name":"search-ser
 
 ### Speech, image and judgment rules
 
-These modalities carry no effort. The proxy routes them at `EFFORT_LOW` with a reserved
+These modalities may state `needs`; without them only the modality filters. The proxy routes them with a reserved
 `attributes["modality"]` set to `tts`, `image`, `judge` or `translate`, and only rules that name that
 modality can match, over models that declare the matching capability:
 
@@ -1039,7 +1043,7 @@ ktms completion zsh > "${fpath[1]}/_ktms"     # also bash and fish
 ktms mcp                                      # tools for AI assistants, see below
 ```
 
-`ktms route explain KEY --effort low [--attr k=v] [--placement P] [--model M]` asks Keystone where
+`ktms route explain KEY --needs medical=basic [--attr k=v] [--placement P] [--model M]` (or the deprecated `--effort low`) asks Keystone where
 such a request would go: the rule, every model of its chain kept or dropped with the reason (no
 vendor key, key or team policy, capability, placement, circuit open, vendor paused, no node), and
 what a call would try. It runs Keystone's own routing (`AdminService/ExplainRoute`), calls no vendor
@@ -1139,7 +1143,7 @@ make proto-ts  # TypeScript stubs in gen/ts/
 
 ```json
 {
-  "effort": "EFFORT_MEDIUM",
+  "needs": {"general": "proficient", "legal": "basic"},
   "attributes": {"language": "es", "user_id": "u-42", "task": "summary"},
   "base_system_instruction": "You are a concise assistant.",
   "request_instruction": "Answer in one paragraph.",
@@ -1153,7 +1157,8 @@ make proto-ts  # TypeScript stubs in gen/ts/
 
 | Field | Notes |
 | --- | --- |
-| `effort` | Routing tier (`EFFORT_LOW`, `EFFORT_MEDIUM`, `EFFORT_HIGH`). |
+| `needs` | What the request needs: topic → `basic`, `proficient` or `expert`; see [Needs and competencies](#needs-and-competencies). |
+| `effort` | Deprecated: `EFFORT_LOW`, `EFFORT_MEDIUM`, `EFFORT_HIGH` are `general` at `basic`, `proficient`, `expert`. |
 | `attributes` | Opaque key/values matched by rules and copied to usage events. `user_id` charges the per-user daily budget (falls back to `svc:<key_name>` for service callers without `user_id`). `usage_project` overrides the usage project (see below). |
 | `base_system_instruction`, `request_instruction` | System content never travels as a message. |
 | `response_schema` | Unset = free text. Set = JSON output in that shape: types `string`, `integer`, `number`, `boolean`, `object`, `array`, plus `required`, `nullable`, `enum`, `format` and `additional_properties`. Vendors with structured output enforce it; for the others the proxy checks the reply (types, required keys, enum values, extra keys when `additional_properties` is false), retries once and then falls back. A `format` a vendor rejects is passed to the model in the description instead. |
@@ -1455,7 +1460,8 @@ The `model` parameter supports smart auto-routing and infrastructure placement:
 | `model` | Behaviour |
 | --- | --- |
 | `auto` (or empty) | Smart auto-selection with default `nodes_first` placement. Evaluates prompt complexity via Judge (or uses `reasoning_effort` if provided). |
-| `auto:low`, `auto:medium`, `auto:high` | Pinned effort level with `nodes_first` placement. |
+| `auto:<topic>=<level>,…` (e.g. `auto:medical=basic:cloud-first`) | Routes by these needs; the `X-KTMS-Needs` header does the same for SDKs that fix the model value. |
+| `auto:low`, `auto:medium`, `auto:high` | Pinned general need with `nodes_first` placement; deprecated. |
 | `auto:nodes-first`, `auto:nodes-only`, `auto:cloud-first`, `auto:cloud-only` | Auto-routing with explicit compute locality policy. |
 | `auto:<placement>:<effort>` (e.g. `auto:nodes-only:high`) | Combined placement policy and pinned effort level. |
 | anything else | Exact registry model ID (`model_override`): bypasses rules but not throttles. |
@@ -1475,7 +1481,8 @@ Placement precedence:
 #### Fast Judge Auto-Selection
 When `model: "auto"` is requested without an explicit effort level, the proxy evaluates prompt complexity using the configured Judge model (such as `jev-latest` or OpenAI Decisions) with a 250ms deadline. If the judge is not configured or times out, it safely falls back to standard medium effort without dropping the request.
 
-Effort precedence:
+Effort precedence (needs in the model string or `X-KTMS-Needs` come first and skip the judge;
+`reasoning_effort` keeps meaning the general need in 1.x and is deprecated):
 1. Pinned effort in model string (e.g. `auto:low`)
 2. `reasoning_effort` request field (`low`, `medium`, `high`) — skips judge evaluation
 3. Dynamic Judge evaluation (fails open to `medium`)
@@ -1843,7 +1850,7 @@ Turn the inbox off with `AGENTS_ENABLED=false`. An upstream registered as `agent
 
 ## Concepts
 
-**Effort** is the only routing field the proxy understands; everything else about a request's
+A request states its **needs**, models declare **competencies** (see below); everything else about a request's
 purpose travels in free-form attributes, so the proxy knows nothing about your product.
 
 **Throttling & Wait Buffer:**
@@ -1870,12 +1877,36 @@ purpose travels in free-form attributes, so the proxy knows nothing about your p
 - Local node models are never paused: the node pool has its own admission control.
 
 **Usage reporting.** When `USAGE_COLLECTOR_HOST` is set, every call emits an event (vendor,
-model, tokens, duration, status, `action_id`, rule name and your attributes as metadata) to a
+model, tokens, duration, status, `action_id`, rule name and your attributes as metadata; KTMS adds
+`effort`, the general need as `low|medium|high`, and from 1.7 `needs`, as `topic=level,…` with topics
+sorted, e.g. `general=basic,medical=proficient`) to a
 gRPC service implementing [`usage-proto/usage/v1/usage.proto`](https://github.com/ai-process/ktms/blob/main/usage-proto/usage/v1/usage.proto).
 Events are attributed to the project named by the `usage_project` attribute, falling back to the
 API key's name. Any service implementing `RecordUsageEvent(s)` works as a sink. When
 light-tokenmeter has authentication on, give KTMS a token with the `write` scope in
 `USAGE_COLLECTOR_TOKEN`; a refused token is logged as an error and events are held and retried.
+
+### Needs and competencies
+
+Both are maps of a **topic** to a **level**. The operator picks the topics: lowercase words such as
+`general`, `medical` or `legal`. The levels are ordered: `basic` < `proficient` < `expert`.
+
+- A model's **competencies** say what it is good at, e.g. `{general: expert, medical: proficient}`.
+  A model meets any need at its own level or below.
+- A request's **needs** say what the code needs, e.g. `{medical: basic}`; the code knows topics, not
+  models. An unknown level is `INVALID_ARGUMENT`; an unknown topic only finds no model.
+- **Capabilities** stay for abilities without a level (tools, vision, search); **attributes** stay
+  the call's context for usage and rules.
+- **Effort is deprecated** (KTMS 1.7): `LOW`, `MEDIUM`, `HIGH` are `general: basic`, `proficient`,
+  `expert`. A model's `efforts` read as `general` at the highest effort listed, and such a model keeps
+  serving exactly those efforts, so a 1.6 configuration routes as before.
+
+A matching rule (its needs reached, its attributes equal) replaces the selection with its chain;
+canary weights and shadow traffic exist only in rules. Without a matching rule, once some model
+declares competencies, Keystone selects: the enabled models that meet every need and capability and
+that `allowed_models` allows, ordered by placement class, then by **excess** (levels above the
+needs, summed), then by the **blended price** `(3 × price_in + price_out) / 4` per million tokens;
+the first three make the chain. Without competencies a catch-all rule per effort stays required.
 
 ### Restricted data
 
@@ -2005,8 +2036,9 @@ fix bugs.
 | Error contract | The status codes and reason strings in [Error contract](#error-contract) and the HTTP [Errors](#errors) table keep their meaning. New reasons may appear, so treat unknown ones like their status code. |
 | Environment variables | Names, defaults and meaning of every variable in [Configuration reference](#configuration-reference). |
 | Database | Any 1.x release upgrades the database of an earlier one by itself (`AUTO_MIGRATE`, forward-only). No manual SQL steps. The tables are not an API: read and write through the RPCs. |
-| Prometheus metrics | Names and labels of `ktms_*` metrics, except the experimental ones listed below. |
-| Usage events (`usage.v1`) | Field numbers and meaning, checked by `buf breaking` like `ktms.v1`. |
+| Prometheus metrics | Names and labels of `ktms_*` metrics, except the experimental ones listed below. The `effort` label stays: for a request with needs it is the `general` need as `low`, `medium` or `high`, and `default` without one. Needs get no label: topics are unbounded. |
+| Usage events (`usage.v1`) | Field numbers and meaning, checked by `buf breaking` like `ktms.v1`. The meta keys KTMS writes keep their format, `effort` and `needs` (1.7) included. |
+| Needs and competencies (1.7) | `ModelSpec.competencies`, `needs` on requests and rules, `ModelInfo.competencies`, the HTTP model `auto:<topic>=<level>,…`, the `X-KTMS-Needs` header, and the levels `basic` < `proficient` < `expert`: a model meets a need at its level or below. |
 | Node daemon | A 1.x daemon works with any 1.x gateway, in both directions. |
 | Helm chart (`oci://ghcr.io/ai-process/charts/ktms`) | Value names and meaning; new values may appear. The chart version is the release version. |
 
@@ -2022,12 +2054,16 @@ These work and are supported, but may change in a minor release. The change is t
 - **The configuration file format** (`api_version: ktms.ai-process.dev/v1alpha1`) and the
   `ktms` command, until the format reaches `v1`.
 
-- **The judge's effort choice:** when a request is auto-routed without a pinned effort
-  (`model: "auto"` or `auto:<placement>` over HTTP without `reasoning_effort`; `auto_route` with
-  `effort_specified` false in gRPC), a judge picks the effort. Its choice, the `auto-judge` and
+- **Selection without a rule (1.7):** its order (placement class, then excess, then the blended price
+  `(3 × price_in + price_out) / 4`, or the price per million characters for translation, then the
+  model id), the chain of three, and `ExplainRoute`'s `excess` and `blended_price_per_mtok`. Which
+  models qualify is stable.
+- **The judge's choice of the general level:** when a request is auto-routed without needs or a pinned
+  effort (`model: "auto"` or `auto:<placement>` over HTTP without `reasoning_effort` or `X-KTMS-Needs`;
+  `auto_route` without `needs` and with `effort_specified` false in gRPC), a judge picks the `general` level. Its choice, the `auto-judge` and
   `auto-default` values of `route_mode`, `judge_score`, `judge_model` and the
-  `X-KTMS-Judge-Score` and `X-KTMS-Judge-Model` headers are experimental. Auto-routing with a
-  pinned effort (`auto:<effort>`, `auto:<placement>:<effort>`, route mode `auto-effort`),
+  `X-KTMS-Judge-Score` and `X-KTMS-Judge-Model` headers are experimental. Auto-routing with needs or a
+  pinned effort (`auto:<topic>=<level>`, `auto:<effort>`, `auto:<placement>:<effort>`, route mode `auto-effort`),
   placement policies, `model_override` and the `X-KTMS-Route-Mode` header are stable.
 - **Shadow traffic and its evaluation:** the `shadow_model`, `shadow_percentage` and `shadow_eval`
   rule fields, and the `ktms_shadow_*` metrics.
@@ -2081,6 +2117,14 @@ advance:
 | --- | --- | --- |
 | `LLMPROXY_ENCRYPTION_KEYS` | `KTMS_ENCRYPTION_KEYS` | 2.0 |
 | `X-LLM-Proxy-*` request and response headers | `X-KTMS-*` | On their `Sunset` date, 2027-03-01, as already announced in the responses |
+
+- **Effort (until 2.0):** the `Effort` enum, `GenerateTextRequest.effort` and `effort_specified`,
+  `SubmitBatchRequest.effort`, `ModelSpec.efforts`, `ModelInfo.efforts`, `RuleSpec.effort`,
+  `ExplainRoute`'s `effort` fields, the HTTP models `auto:low`, `auto:medium`, `auto:high`, and
+  `reasoning_effort` meaning the general need for the model `auto`. They keep working through 1.x
+  as the topic `general` (low, medium, high = basic, proficient, expert); a model described by
+  efforts keeps serving exactly those. Write `competencies` and `needs` instead; no warning is logged,
+  as effort is still how most 1.x clients route.
 
 ## Operations
 
@@ -2141,7 +2185,7 @@ metrics are served next to them.
 
 | Metric | Labels | What it tells you |
 | --- | --- | --- |
-| `ktms_requests_total` | `vendor`, `model`, `effort`, `status` (`success`, `error`, `canceled`) | Upstream calls and their outcome; `canceled` is a caller that went away. |
+| `ktms_requests_total` | `vendor`, `model`, `effort`, `status` (`success`, `error`, `canceled`) | Upstream calls and their outcome; `canceled` is a caller that went away. `effort` is the `general` need as `low`, `medium` or `high`, `default` without one. |
 | `ktms_request_duration_seconds` | `vendor`, `model`, `effort` | Upstream call duration, histogram; for a stream, the whole stream. |
 | `ktms_time_to_first_token_seconds` | `vendor`, `model` | Time to the first streamed chunk, histogram. |
 | `ktms_tokens_total` | `vendor`, `model`, `type` (`input`, `output`) | Tokens consumed. |

@@ -218,6 +218,11 @@ and optionally by a second meta key (say `task_id`), plus an optional `project_i
 are indexed via a partial expression index (`meta ? 'job_id'`). Responses include
 `truncated: true` if matching aggregate groups exceed 10,000 rows.
 
+KTMS writes its own keys too: `rule`, `effort` (the general need as `low|medium|high`) and, from KTMS
+1.7, `needs` (`topic=level,…`, topics sorted, e.g. `general=basic,medical=proficient`). Ask for
+`meta_key: needs` with one exact value to see what requests with those needs cost; a breakdown of a
+window by needs is planned.
+
 ```bash
 grpcurl -plaintext -d '{"meta_key":"job_id","meta_value":"job-42","group_by_meta_key":"task_id"}' \
   localhost:9090 usage.v1.UsageService/GetUsageByMeta

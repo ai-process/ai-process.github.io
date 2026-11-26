@@ -548,7 +548,7 @@
       "dot": "cyan",
       "title": "Routing & Fallbacks",
       "items": [
-        "Rules match on effort (LOW/MEDIUM/HIGH) and free-form attributes",
+        "Needs meet model competencies; rules pin chains by needs and attributes",
         "Ordered fallback chains retry across vendors before locking streams",
         "Serves text, JSON schema, tools, streaming, batches, TTS, image, Judge and Translate",
         "Translate routes by language pair: node MT (ktms-mt) first, then any LLM by prompt"
