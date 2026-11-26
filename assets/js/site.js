@@ -59,18 +59,18 @@
     };
     var scenes = [
       {
-        cmd: request("auto:high"),
+        cmd: request("auto:medical=expert"),
         out: [
           '<span class="ok">HTTP/1.1 200 OK</span>',
           '<span class="h">X-KTMS-Vendor:</span> anthropic',
-          '<span class="h">X-KTMS-Rule:</span> default-high',
+          '<span class="h">X-KTMS-Route-Mode:</span> auto-effort',
           '<span class="h">X-KTMS-Placement:</span> cloud_first',
           '{"choices":[{"message":{"content":"Here is the plan…"}}]}',
-          '<span class="c"># effort HIGH → strongest model in the chain</span>'
+          '<span class="c"># needs medical=expert → a medical expert, the cheapest such</span>'
         ]
       },
       {
-        cmd: request("auto:low"),
+        cmd: request("auto:general=basic"),
         out: [
           '<span class="ok">HTTP/1.1 200 OK</span>',
           '<span class="h">X-KTMS-Vendor:</span> local',
@@ -81,11 +81,11 @@
         ]
       },
       {
-        cmd: request("auto:medium"),
+        cmd: request("auto:general=proficient"),
         out: [
           '<span class="ok">HTTP/1.1 200 OK</span>',
           '<span class="h">X-KTMS-Vendor:</span> gemini',
-          '<span class="h">X-KTMS-Rule:</span> default-medium',
+          '<span class="h">X-KTMS-Route-Mode:</span> auto-effort',
           '<span class="h">X-KTMS-Placement:</span> cloud_first',
           '{"choices":[{"message":{"content":"Summary: …"}}]}',
           '<span class="c"># first vendor returned 503 → fell back, caller never noticed</span>'

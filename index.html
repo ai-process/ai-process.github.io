@@ -1,14 +1,14 @@
 ---
 layout: default
 title: ai-process — open-source infrastructure for production LLMs
-description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-tokenmeter and ktms-admin it keeps your vendor keys, routes by effort, falls back, caps spend and shows who burns the tokens. Apache-2.0-licensed.
+description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-tokenmeter and ktms-admin it keeps your vendor keys, routes by what each request needs, falls back, caps spend and shows who burns the tokens. Apache-2.0-licensed.
 ---
 <section class="hero">
   <div class="container hero-grid">
     <div>
       <span class="pill"><span class="dot"></span>Open source · Apache 2.0 · Written in Go</span>
       <h1>One switchboard for <span class="grad-text">every LLM</span> you run</h1>
-      <p class="lead">Keystone. The Model Switchboard. (KTMS) is a self-hosted LLM gateway: it keeps your vendor keys, routes each request by effort, falls back when a provider fails and caps spend. light-tokenmeter shows who burns the tokens. ktms-admin puts it all in your browser.</p>
+      <p class="lead">Keystone. The Model Switchboard. (KTMS) is a self-hosted LLM gateway: it keeps your vendor keys, routes each request to a model that can do it, without spending an expert on simple work, falls back when a provider fails and caps spend. light-tokenmeter shows who burns the tokens. ktms-admin puts it all in your browser.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="#demo">See it route a request</a>
         <a class="btn btn-ghost" href="/docs/">Read the docs</a>
@@ -100,7 +100,7 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
       <div class="flow-box flow-core">
         <b class="grad-text">KTMS</b>
         <div><small>Postgres for config &amp; encrypted keys · Redis for limits</small></div>
-        <div class="chips"><span>vendor keys</span><span>effort rules</span><span>fallbacks</span><span>RPM &amp; budgets</span><span>batches</span><span>node pool</span></div>
+        <div class="chips"><span>vendor keys</span><span>needs &amp; rules</span><span>fallbacks</span><span>RPM &amp; budgets</span><span>batches</span><span>node pool</span></div>
       </div>
       <div class="flow-arrow"></div>
       <div class="flow-col">
@@ -153,10 +153,10 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
     <div class="reveal">
       <span class="eyebrow">Once it runs</span>
       <h2>Every request, <span class="grad-text">routed for you</span></h2>
-      <p class="demo-text">Your code asks for an effort, not a model. Keystone picks the model from your rules, keeps cheap work on your own GPUs and moves to the next vendor when one fails. The response headers say who answered and why.</p>
+      <p class="demo-text">Your code says what it needs, not which model. Keystone picks the model by its competencies and your rules, keeps cheap work on your own GPUs and moves to the next vendor when one fails. The response headers say who answered and why.</p>
       <ul class="demo-points">
-        <li><code>auto:high</code> goes to the strongest model in the chain</li>
-        <li><code>auto:low</code> stays on a local node: zero cloud tokens</li>
+        <li><code>auto:medical=expert</code> goes to a model that is an expert in it</li>
+        <li><code>auto:general=basic</code> stays on a local node: zero cloud tokens</li>
         <li>a vendor 503 becomes a fallback the caller never sees</li>
       </ul>
     </div>
@@ -220,7 +220,7 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
         <p>Your services talk to one endpoint. Keystone holds the vendor keys, picks the model, retries elsewhere when a vendor is down and records every call.</p>
         <ul>
           <li>Vendor keys encrypted in Postgres (AES-256-GCM): OpenAI, Anthropic, Gemini, DeepSeek</li>
-          <li>Routing rules by effort and attributes, changed live</li>
+          <li>Routing by needs and model competencies, rules where you want them, changed live</li>
           <li>RPM, daily token budgets and USD spend caps per key, user and team</li>
           <li>Batches at 50% off, speech, images, typed <code>Judge</code></li>
           <li>Pool of your own GPU nodes with cloud fallback</li>
@@ -281,16 +281,16 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
     <div class="feature">
       <div class="feature-text reveal">
         <div class="feature-num">1</div>
-        <h3>Ask for effort, not for a model</h3>
-        <p>Clients send <code>effort: LOW | MEDIUM | HIGH</code> and free-form attributes. An ordered rule list maps them to a chain of models with fallbacks.</p>
+        <h3>Say what you need, not which model</h3>
+        <p>Code sends its needs, such as <code>needs: {medical: basic}</code>, and free-form attributes. Models declare competencies (<code>basic</code> &lt; <code>proficient</code> &lt; <code>expert</code>). Keystone picks the models that meet the needs, the closest fit first and the cheaper of equals before the dearer, and your rules pin a chain where you want one.</p>
         <p>Rules change at runtime over the admin API or in ktms-admin. A new model release is a config change, not a refactor across a dozen services.</p>
       </div>
       <div class="card reveal d1">
-        <div class="card-title"><span>Routing rules</span><span>live</span></div>
-        <div class="rule"><span class="effort low">LOW</span><div class="chain"><span class="primary">local · gemma</span><em>→</em><span>gemini-flash</span></div></div>
-        <div class="rule"><span class="effort med">MEDIUM</span><div class="chain"><span class="primary">gpt-mini</span><em>→</em><span>deepseek-chat</span><em>→</em><span>gemini-flash</span></div></div>
-        <div class="rule"><span class="effort high">HIGH</span><div class="chain"><span class="primary">claude</span><em>→</em><span>gpt</span><em>→</em><span>gemini-pro</span></div></div>
-        <div class="rule"><span class="effort high">HIGH</span><div class="chain"><em>if</em><span>tenant=eu</span><em>→</em><span class="primary">gemini-pro</span><em>→</em><span>local · llama</span></div></div>
+        <div class="card-title"><span>Needs → models</span><span>live</span></div>
+        <div class="rule"><span class="need low">general: basic</span><div class="chain"><span class="primary">local · gemma</span><em>→</em><span>gemini-flash</span></div></div>
+        <div class="rule"><span class="need med">medical: basic</span><div class="chain"><span class="primary">gpt-mini</span><em>→</em><span>deepseek-chat</span><em>→</em><span>gemini-flash</span></div></div>
+        <div class="rule"><span class="need high">general: expert</span><div class="chain"><span class="primary">claude</span><em>→</em><span>gpt</span><em>→</em><span>gemini-pro</span></div></div>
+        <div class="rule"><span class="need high">general: expert</span><div class="chain"><em>if</em><span>tenant=eu</span><em>→</em><span class="primary">gemini-pro</span><em>→</em><span>local · llama</span></div></div>
       </div>
     </div>
 
@@ -354,7 +354,7 @@ description: Keystone (KTMS) is a self-hosted LLM gateway in Go. With light-toke
     <div class="assist-grid">
       <div class="assist-card reveal"><code>/ktms:assess</code><h4>Where does it fit?</h4><p>Surveys your services, LLM calls, deployment, secrets and GPUs, and says what Keystone changes and costs here.</p></div>
       <div class="assist-card reveal d1"><code>/ktms:deploy</code><h4>Run the stack</h4><p>Compose or Helm for Keystone, light-tokenmeter and ktms-admin, with secrets from your store and a first-start runbook.</p></div>
-      <div class="assist-card reveal d2"><code>/ktms:integrate</code><h4>Connect a service</h4><p>One client module, an effort per call site, attribution, an error policy and tests, in your codebase.</p></div>
+      <div class="assist-card reveal d2"><code>/ktms:integrate</code><h4>Connect a service</h4><p>One client module, needs per call site, attribution, an error policy and tests, in your codebase.</p></div>
     </div>
     <div class="assist-install reveal">
       <div class="install-cmd"><code><span class="p">$</span> claude plugin marketplace add ai-process/ktms &amp;&amp; claude plugin install ktms@ai-process</code><button class="install-copy" data-copy-cmd>Copy</button></div>
@@ -400,7 +400,7 @@ OPENAI_API_KEY=sk-... <span class="k">sh</span> -c <span class="s">"$(curl -fsSL
 
 client = OpenAI(base_url=<span class="s">"http://localhost:8080/v1"</span>, api_key=<span class="s">"ktms_local_…"</span>)
 response = client.chat.completions.create(
-    model=<span class="s">"auto"</span>,  <span class="c"># or "auto:low", "auto:high"</span>
+    model=<span class="s">"auto"</span>,  <span class="c"># or "auto:general=basic", "auto:medical=expert"</span>
     messages=[{<span class="s">"role"</span>: <span class="s">"user"</span>, <span class="s">"content"</span>: <span class="s">"Say hi in three words."</span>}],
 )
 <span class="k">print</span>(response.choices[0].message.content)</pre>
@@ -427,7 +427,7 @@ response = client.chat.completions.create(
     </div>
     <div class="docs-grid">
       <a class="doc-card reveal" href="/docs/architecture/"><h4>Architecture &amp; deployment</h4><p>How the services fit together, with one Compose file for the whole stack.</p></a>
-      <a class="doc-card reveal d1" href="/docs/ktms/"><h4>Keystone (KTMS) gateway</h4><p>APIs, effort routing, fallbacks, limits, batches, speech and images.</p></a>
+      <a class="doc-card reveal d1" href="/docs/ktms/"><h4>Keystone (KTMS) gateway</h4><p>APIs, routing by needs, fallbacks, limits, batches, speech and images.</p></a>
       <a class="doc-card reveal d2" href="/docs/local-nodes/"><h4>Local GPU node pool</h4><p>Self-registering nodes, health states, Smooth WRR and cloud fallback.</p></a>
       <a class="doc-card reveal" href="/docs/quickstart-local-node/"><h4>Quick start: local node</h4><p>Connect Ollama, vLLM, TGI or llama.cpp to KTMS step by step.</p></a>
       <a class="doc-card reveal d1" href="/docs/light-tokenmeter/"><h4>light-tokenmeter</h4><p>Events, auth, summaries, ClickHouse, metrics and the greedy vs worthy analysis.</p></a>
@@ -446,7 +446,7 @@ response = client.chat.completions.create(
       <h2>Questions <span class="grad-text">before you begin</span></h2>
     </div>
     <div class="faq-list reveal">
-      <details><summary>Why another gateway when LiteLLM exists?</summary><p>LiteLLM is great for Python-centric work with hundreds of niche providers. Keystone is built for production infrastructure: a gRPC API with typed contracts, effort-based routing, budgets per key and user, and a local GPU pool. On our stand it was ready in ~170 ms instead of ~32 s and used ~145× less memory at 200 RPS. Both can run side by side while you compare. <a href="https://github.com/ai-process/ktms/blob/main/docs/install.md#resource-footprint">Method and numbers →</a></p></details>
+      <details><summary>Why another gateway when LiteLLM exists?</summary><p>LiteLLM is great for Python-centric work with hundreds of niche providers. Keystone is built for production infrastructure: a gRPC API with typed contracts, routing by needs and model competencies, budgets per key and user, and a local GPU pool. On our stand it was ready in ~170 ms instead of ~32 s and used ~145× less memory at 200 RPS. Both can run side by side while you compare. <a href="https://github.com/ai-process/ktms/blob/main/docs/install.md#resource-footprint">Method and numbers →</a></p></details>
       <details><summary>Is it the fastest gateway?</summary><p>No. On the same stand agentgateway, APISIX and Kong add 0.25–0.35 ms at p50 against ~0.64 ms for Keystone and use less CPU per request. Keystone is in the same sub-millisecond league and sustains ≥4,000 RPS on 4 vCPU; it differs on features and licence, not raw speed.</p></details>
       <details><summary>Does it work with local models?</summary><p>Yes. Add any OpenAI-compatible server (Ollama, vLLM, llama.cpp, LocalAI) as a model, or run the node daemon <code>ktms-node</code> on your machines to get a self-balancing pool that reports VRAM and speed and falls back to the cloud when busy. <a href="/docs/local-nodes/">Local GPU node pool →</a></p></details>
       <details><summary>Which providers are supported?</summary><p>OpenAI, Anthropic, Google Gemini, DeepSeek, Groq and any OpenAI-compatible endpoint. We go deep on each (streaming, structured output, batches at 50% off, speech, images) rather than wide on adapter count.</p></details>
