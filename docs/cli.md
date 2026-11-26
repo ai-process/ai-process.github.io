@@ -87,8 +87,8 @@ Use the least key that does the job: `admin:read` for everything in `ktms` that 
 ```bash
 ktms keys mint billing --team acme/search --rpm 120
 echo "$OPENAI_KEY" | ktms vendor-keys set billing openai
-ktms route explain billing --effort high --attr tier=pro
-ktms chat --effort low "Say hi"
+ktms route explain billing --needs general=expert --attr tier=pro
+ktms chat --needs general=basic "Say hi"
 ktms translate --to de reviews.txt
 ktms route explain billing --modality translate --from fr --to de
 ktms limits set key billing day 5

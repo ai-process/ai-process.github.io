@@ -9,7 +9,7 @@ permalink: /docs/architecture/
 
 The **ai-process** ecosystem consists of two core backend services and an optional web console:
 
-1. **[Keystone. The Model Switchboard. (KTMS)](/docs/ktms/)** ([`ai-process/ktms`](https://github.com/ai-process/ktms), formerly `llm-proxy`) — Self-hosted LLM gateway. Holds encrypted vendor API keys, routes requests by `effort` and free-form attributes across model fallback chains, enforces Redis-backed RPM and daily token budgets, and streams usage events.
+1. **[Keystone. The Model Switchboard. (KTMS)](/docs/ktms/)** ([`ai-process/ktms`](https://github.com/ai-process/ktms), formerly `llm-proxy`) — Self-hosted LLM gateway. Holds encrypted vendor API keys, routes requests by their needs (topic: level), the models' competencies and free-form attributes across model fallback chains, enforces Redis-backed RPM and daily token budgets, and streams usage events.
 2. **[light-tokenmeter](/docs/light-tokenmeter/)** ([`ai-process/light-tokenmeter`](https://github.com/ai-process/light-tokenmeter)) — Lightweight token usage meter. Receives one event per model call over gRPC or HTTP (behind bearer tokens with `write` and `read` scopes), stores them idempotently in Postgres, optionally copies them to ClickHouse without loss, and serves daily multi-dimensional summaries to identify greedy vs. worthy token consumers.
 3. **[ktms-admin](/docs/ktms-admin/)** ([`ai-process/ktms-admin`](https://github.com/ai-process/ktms-admin), formerly `llm-proxy-admin`) — Web console for managing Keystone (models, rules, API keys, vendor credentials, prompt playground) and visualizing usage and cost from `light-tokenmeter`, with password, OpenID Connect, GitHub or access-proxy sign-in.
 

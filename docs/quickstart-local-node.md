@@ -40,7 +40,7 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" -d '{
   "model": {
     "id": "qwen2.5:7b",
     "vendor": "local",
-    "efforts": ["EFFORT_LOW", "EFFORT_MEDIUM"],
+    "competencies": {"general": "proficient"},
     "enabled": true
   }
 }' localhost:9090 ktms.v1.AdminService/UpsertModel

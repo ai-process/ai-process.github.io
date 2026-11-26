@@ -44,7 +44,7 @@ grpcurl -plaintext -H "authorization: Bearer $ADMIN_KEY" -d '{
     "id": "qwen2.5:14b",
     "vendor": "ollama",
     "endpoint": "http://10.0.1.25:11434/v1",
-    "efforts": ["EFFORT_LOW", "EFFORT_MEDIUM"],
+    "competencies": {"general": "proficient"},
     "capabilities": ["no_thinking"],
     "enabled": true
   }
