@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/ai-process/ktms",
-      "revision": "8095e435f40456ea7286224f27bfb40e34175613"
+      "revision": "7104d23ab8a636ca0f30184efe9af36ace40a5da"
     }
   },
   "components": [
@@ -270,7 +270,7 @@
       "id": "agents",
       "type": "external",
       "label": "Coding Agents",
-      "sublabel": "Claude Code · Cursor",
+      "sublabel": "Claude Code · agy",
       "pos": [
         40,
         620
@@ -291,6 +291,12 @@
           "line": 1,
           "end_line": 40,
           "label": "Messages API for Claude Code"
+        },
+        {
+          "path": "internal/agentrun/agentrun.go",
+          "line": 1,
+          "end_line": 60,
+          "label": "ktms agents run answers the inbox"
         }
       ]
     },
@@ -298,7 +304,7 @@
       "id": "mcpgw",
       "type": "security",
       "label": "MCP Gateway",
-      "sublabel": "/mcp · server__tool",
+      "sublabel": "/mcp · agents",
       "tag": "scope mcp",
       "pos": [
         260,
@@ -342,6 +348,41 @@
           "line": 1,
           "end_line": 40,
           "label": "Registered servers"
+        }
+      ]
+    },
+    {
+      "id": "nodes",
+      "type": "backend",
+      "label": "Inference Nodes",
+      "sublabel": "Ollama · ktms-mt",
+      "tag": "node pool",
+      "pos": [
+        810,
+        330
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "sources": [
+        {
+          "path": "internal/nodes/node_adapter.go",
+          "line": 1,
+          "end_line": 80,
+          "label": "Pool adapter"
+        },
+        {
+          "path": "internal/nodes/node_translate.go",
+          "line": 1,
+          "end_line": 40,
+          "label": "Translate on nodes"
+        },
+        {
+          "path": "mt/ktms_mt/server.py",
+          "line": 1,
+          "end_line": 20,
+          "label": "ktms-mt contract"
         }
       ]
     }
@@ -412,9 +453,12 @@
       "id": "router-vendors",
       "from": "router",
       "to": "vendors",
-      "label": "Fallback chain",
+      "label": "Fallbacks",
       "variant": "emphasis",
-      "labelDy": 20
+      "labelAt": [
+        778,
+        222
+      ]
     },
     {
       "id": "poller-db",
@@ -431,7 +475,11 @@
       "label": "Poll batch",
       "variant": "dashed",
       "fromSide": "right",
-      "toSide": "bottom"
+      "toSide": "bottom",
+      "labelAt": [
+        960,
+        450
+      ]
     },
     {
       "id": "router-usage",
@@ -481,6 +529,18 @@
       ],
       "fromSide": "right",
       "toSide": "left"
+    },
+    {
+      "id": "router-nodes",
+      "from": "router",
+      "to": "nodes",
+      "label": "Chat · Judge · Translate"
+    },
+    {
+      "id": "mcp-tasks",
+      "from": "mcpgw",
+      "to": "postgres",
+      "label": "Agent tasks"
     }
   ],
   "cards": [
@@ -490,7 +550,8 @@
       "items": [
         "Rules match on effort (LOW/MEDIUM/HIGH) and free-form attributes",
         "Ordered fallback chains retry across vendors before locking streams",
-        "Supports text, JSON-schema, tools, streaming SSE/gRPC, 50%-off batches, TTS, image, and Judge"
+        "Serves text, JSON schema, tools, streaming, batches, TTS, image, Judge and Translate",
+        "Translate routes by language pair: node MT (ktms-mt) first, then any LLM by prompt"
       ]
     },
     {
@@ -517,7 +578,7 @@
       "items": [
         "Claude Code and the Anthropic SDKs call /v1/messages, answered by any vendor's model",
         "MCP clients reach registered servers at /mcp; allowed_mcp hides the rest",
-        "MCP credentials stay encrypted in Postgres; every call is limited and metered"
+        "Agents trade tasks at /mcp/agents, kept in Postgres and checked by guardrails"
       ]
     }
   ]

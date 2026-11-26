@@ -44,7 +44,7 @@ Target (edit before sending):
 - Postgres: <managed at …, or in-cluster>; Redis: <managed | in-cluster>
 - Secrets: <Kubernetes Secrets | External Secrets from … | SOPS | .env for Compose>
 - Public hostnames: gateway HTTP <api.example.com>, gateway gRPC <grpc.example.com> (clients and
-  node agents), console <admin.example.com>
+  node daemons), console <admin.example.com>
 - Console sign-in: <password | Google | OIDC issuer … | GitHub | access proxy …>, admins <e-mails>
 - Monitoring: <Prometheus Operator | plain Prometheus | none>
 

@@ -80,6 +80,7 @@ Use the least key that does the job: `admin:read` for everything in `ktms` that 
 | `ktms nodes list\|drain`, `ktms node-keys list\|mint\|revoke` | Inference nodes and their keys |
 | `ktms rotate-encryption` | Re-encrypt secrets with the active keyring version |
 | `ktms chat PROMPT` | A test call through `/v1`, then the rule, model and vendor that served it |
+| `ktms translate --to LANG [--from LANG] [FILE\|-]` | Translate line by line through `/v1/translate`; `-o json` adds the model and detected language |
 | `ktms health` | `/healthz`, `/readyz` and the server's version |
 | `ktms mcp` | The [MCP server](/docs/mcp/) |
 
@@ -88,14 +89,17 @@ ktms keys mint billing --team acme/search --rpm 120
 echo "$OPENAI_KEY" | ktms vendor-keys set billing openai
 ktms route explain billing --effort high --attr tier=pro
 ktms chat --effort low "Say hi"
+ktms translate --to de reviews.txt
+ktms route explain billing --modality translate --from fr --to de
 ktms limits set key billing day 5
 ktms spend get key billing
 ```
 
 `ktms route explain` runs Keystone's own routing (`AdminService/ExplainRoute`): the matched rule,
 every model of its chain kept or dropped with the reason (`no_vendor_key`, `key_policy`,
-`team_policy`, `capability`, `placement`, `circuit_open`, `vendor_paused`, `node_unavailable`, …),
-and what a call would try. It calls no vendor or judge and spends nothing.
+`team_policy`, `capability`, `placement`, `circuit_open`, `vendor_paused`, `node_unavailable`,
+`language_pair`, …), and what a call would try. It calls no vendor or judge and spends nothing.
+`--modality translate|judge|tts|image` explains that RPC's route; translate takes `--to` and `--from`.
 
 Tables are the default; `-o json` and `-o yaml` keep the API's field names for scripts. Revokes
 ask on a terminal and need `--yes` elsewhere.
