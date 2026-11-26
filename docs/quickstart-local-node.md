@@ -75,6 +75,8 @@ Ensure your inference engine is running and bound to a network interface:
 
 ---
 
+<a id="3-run-the-node-agent-ktms-node"></a>
+
 ## 3. Run the Node Daemon (`ktms-node`)
 
 Build the binary or download a release asset:

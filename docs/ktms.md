@@ -75,8 +75,8 @@ Two gRPC services share port `9090`:
 
 | Service | Purpose | Needed scope |
 | --- | --- | --- |
-| `ktms.v1.GatewayService` | `GenerateText`, `GenerateTextStream`, `SubmitBatch`, `GetBatch`, `ListBatchResults`, `CancelBatch`, `SynthesizeSpeech`, `GenerateImage`, `Judge`, `JudgeStream`, `EvaluateRollouts`, `GetEmbeddings`, `ListModels` | `generate` |
-| `ktms.v1.AdminService` | models, rules, vendor keys, API keys, key rotation, `ExplainRoute` | `admin`; `admin:read` for the `Get*` and `List*` reads and `ExplainRoute`; `agents:read` for the agents' cards and conversations |
+| `ktms.v1.GatewayService` | `GenerateText`, `GenerateTextStream`, `SubmitBatch`, `GetBatch`, `ListBatchResults`, `CancelBatch`, `SynthesizeSpeech`, `GenerateImage`, `Judge`, `JudgeStream`, `EvaluateRollouts`, `GetEmbeddings`, `Translate`, `ListModels` | `generate` |
+| `ktms.v1.AdminService` | models, rules, vendor keys, API keys, key rotation, `ExplainRoute` | `admin`; `admin:read` for the `Get*` (except `GetAgentTask`) and `List*` reads and `ExplainRoute`; `agents:read` for the agents' cards and conversations |
 
 Port `8080` serves the health probes (`/healthz`, `/readyz`) and the
 [OpenAI-compatible HTTP API](#openai-compatible-http-api) under `/v1`, the
@@ -1348,7 +1348,7 @@ models:
     vendor: local
     efforts: [EFFORT_LOW]
     capabilities: [translate]
-    languages: {source: [en, fr, es, it, nl, pt, pl, ru, tr], target: [de]}
+    languages: {source: ["*"], target: [de]}
   - id: gemma4:26b              # any chat model, by prompt
     vendor: local
     efforts: [EFFORT_LOW]
@@ -2038,7 +2038,7 @@ These work and are supported, but may change in a minor release. The change is t
 - **The MCP gateway:** `/mcp`, the `MCPServerSpec` RPCs, `allowed_mcp`, the `mcp_servers` and
   `mcp_credentials` file sections, the `ktms_mcp_*` metrics and `ToolCall` in usage events.
 - **The agents' inbox:** the `agents` MCP server and its tools, `ListAgents`, `SetAgentRecording`,
-  `ListAgentTasks`, `GetAgentTask`, `AGENTS_*`, the journal's event format and the
+  `ListAgentTasks`, `GetAgentTask`, `ReplyAgentTask` (scope `admin`), `AGENTS_*`, the journal's event format and the
   `ktms_agent_*` metrics.
 - **The Anthropic Messages API:** `POST /v1/messages`, `POST /v1/messages/count_tokens` and the
   `X-KTMS-Token-Count` header.
