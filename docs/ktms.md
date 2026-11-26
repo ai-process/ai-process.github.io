@@ -707,6 +707,8 @@ Capabilities a model may declare:
 | `judge` | Can serve `Judge` (TypeSafe `jev-latest`, OpenAI `gpt-6-luna`). |
 | `translate` | Can serve `Translate`: a chat model by prompt, a node MT model natively. Declares `languages` (see [Translation](#translation)). |
 | `embedding_input` | A judge model that scores raw latent vectors in `JudgeRequest.state_media` (`EmbeddingPart`). |
+| `box` | A judge model that answers `JUDGE_TYPE_BOX` (TypeSafe `jev-1.14.0`). Experimental. |
+| `long_context` | TypeSafe only: every call asks for System One's long context (262k tokens). Experimental. |
 
 ### 4. Rules
 
@@ -1303,6 +1305,7 @@ are answered against the same state in parallel.
 | `JUDGE_TYPE_NOUL` | Does this hold? | probability of yes (`noul`, 0–1) |
 | `JUDGE_TYPE_CHOICE` | Which one? | `choice` plus full `probabilities` and `confidence` |
 | `JUDGE_TYPE_SCORE` | How much? | probability-weighted position on ordered `levels` |
+| `JUDGE_TYPE_BOX` | Where on the image? | one `box` and `confidence` (experimental, see below) |
 
 ```json
 {
@@ -1317,9 +1320,38 @@ are answered against the same state in parallel.
 
 Multimodal state goes in `state_media` (`text`, `image`, `audio`, `embedding` parts), alongside
 or instead of `state_json`. Each media kind narrows the chain to judge models that also declare
-`vision`, `audio_input` or `embedding_input`; TypeSafe takes JSON state only. Image URLs must be
+`vision`, `audio_input` or `embedding_input` (a box question also `box`). Image URLs must be
 `https` and are forwarded, not fetched. Guardrails inspect text parts only. Limits: 32 parts,
 16 MiB of media, 16384 embedding dimensions.
+
+**Images at TypeSafe** (experimental; "Dreamer-ready" at the vendor). Image bytes in `state_media` go to
+System One as assets. A part's `name` is how `state_json`, instructions, options, levels and criteria
+refer to it, so put example images for choice options or score levels in `state_media` too and name
+them there; unnamed images are listed beside the state as `{"state": <state_json>, "images": [...]}`.
+TypeSafe takes PNG or JPEG only, each side 280–1568 px, at most 16 MiB a file, upright pixels: Keystone
+checks that from the image header before the call and answers `bad_request` with the size and the
+limit, never resizing or rotating. Image URLs, audio and embeddings make TypeSafe yield to the next
+model; other judges get a named part's name as a text label before it.
+
+**Box** (`JUDGE_TYPE_BOX`, experimental): where an object is on an image, answered as one `box`
+(`top`, `bottom`, `left`, `right`, fractions of the image from its top-left corner) and `confidence`,
+or `confidence_unset` when the vendor gives none. Only TypeSafe `jev-1.14.0` answers it: declare `box`
+and `vision` on that model and pin the version rather than `jev-latest`. A missing object still gets a
+box, so ask a noul "is it there?" beside it.
+
+**Structured questions** (experimental): `instructions_json` and `criteria_json` take System One's JSON
+forms, such as `["Which defect is in", "road", "?"]` or an option `{"description": "a pothole",
+"examples": ["ex-pothole"]}`; TypeSafe gets them as they are, other judges as text.
+
+**Long context**: a model that declares `long_context` gets TypeSafe's long context (262k tokens per
+request and per question instead of 64k and 32k).
+
+**Sizes**: media stays at 16 MiB per request, below TypeSafe's 32 MiB; HTTP bodies are 16 MiB, about
+12 MiB of images after base64. Usage meta counts each call's `images`; their tokens are in
+`usage.input`.
+
+**Patterns** stay on the client: a cheap noul question before an expensive one, routing on
+`confidence`, several score questions at once, all in one request per state.
 
 Supported decision vendors are [TypeSafe](https://typesafe.ai) (`jev-latest`, billing input only) and [OpenAI](https://openai.com) (`gpt-6-luna`, billing input and output tokens); both write no text and declare the `judge` capability.
 
@@ -2070,6 +2102,9 @@ These work and are supported, but may change in a minor release. The change is t
 - **Latent features:** the semantic cache (`SEMANTIC_CACHE_*`), latent guardrails
   (`GUARDRAILS_LATENT_*`), the encoder settings (`LATENT_*`), and embeddings in judge state
   (`EmbeddingPart`, `input_embedding` over HTTP).
+- **Images in judgments at TypeSafe, image names and Box:** `MediaPart.name`, `JUDGE_TYPE_BOX`, `JudgeBox`,
+  `JudgeAnswer.box` and `confidence_unset`, `JudgeQuestion.instructions_json` and `criteria_json`, the
+  `box` and `long_context` capabilities and the image checks. Guardrails do not inspect images.
 - **`JudgeStream` and `EvaluateRollouts`**, and `POST /v1/decisions/rollouts` over HTTP.
 - **The MCP gateway:** `/mcp`, the `MCPServerSpec` RPCs, `allowed_mcp`, the `mcp_servers` and
   `mcp_credentials` file sections, the `ktms_mcp_*` metrics and `ToolCall` in usage events.
